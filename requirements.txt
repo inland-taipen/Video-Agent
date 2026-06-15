@@ -1,0 +1,15 @@
+# beta_story2vid.py – Python dependencies
+# Install with:  pip install -r requirements.txt
+
+# Google Gemini LLM client
+google-generativeai>=0.7.0
+
+# HTTP requests (Pollinations.ai image download)
+requests>=2.31.0
+
+# Optional: load GEMINI_API_KEY from a .env file
+python-dotenv>=1.0.0
+
+# Optional: better fallback images (blank placeholder when Pollinations fails)
+# Remove this line if you don't want Pillow as a dependency.
+Pillow>=10.0.0
