@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from gtts import gTTS
 
 from compiler import compile_video
@@ -228,6 +229,14 @@ async def export_download(task_id: str):
         filename="story_video.mp4",
         headers={"Content-Disposition": "attachment; filename=story_video.mp4"},
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Frontend Static Files (Fallback)
+# ─────────────────────────────────────────────────────────────────────────────
+FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+if FRONTEND_DIST.exists():
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
