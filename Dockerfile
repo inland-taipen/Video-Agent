@@ -2,6 +2,8 @@
 FROM node:18-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
+# Force development mode for install so devDependencies (Vite, TypeScript) are installed
+ENV NODE_ENV=development
 RUN npm install
 COPY frontend/ ./
 RUN npm run build
