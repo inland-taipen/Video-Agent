@@ -1,5 +1,5 @@
 # Stage 1: Build the Vite frontend
-FROM node:18-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 # Force development mode for install so devDependencies (Vite, TypeScript) are installed
