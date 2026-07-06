@@ -40,7 +40,16 @@ export async function runPipeline(opts: OrchestratorOptions): Promise<Storyboard
 
   onProgress({ stage: 'storyboard', message: '🖼️ Building storyboard image URLs (Pollinations.ai)…', progress: 50 });
 
-  // Agent 3: Storyboard (free Pollinations.ai images)
+  try {
+    const health = await fetch('/api/health');
+    if (!health.ok) {
+      throw new Error('Backend not reachable. Run ./start.sh so images can be generated.');
+    }
+  } catch {
+    throw new Error('Backend not running at /api/health. Run ./start.sh to start backend + frontend.');
+  }
+
+  // Agent 3: Storyboard (free image APIs via backend proxy)
   const frames = runStoryboard(enrichedScenes, seed);
 
   onProgress({ stage: 'storyboard', message: `🖼️ Loading ${frames.length} images…`, progress: 55 });

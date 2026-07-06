@@ -1,4 +1,4 @@
-# StoryViz — Story → Storyboard Video
+# Stories by Oldies — Story → Storyboard Video
 
 A complete end-to-end AI-powered pipeline that transforms short stories into cinematic storyboard videos.
 

@@ -61,6 +61,11 @@ def _download_media(url: str, dest: Path, scene_num: int, media_type: str) -> Pa
     """Download media; fall back to a coloured placeholder."""
     if not url:
         return _placeholder_image(dest, scene_num)
+
+    # Convert relative frontend proxy URLs to absolute backend URLs
+    if url.startswith("/"):
+        url = f"http://127.0.0.1:8000{url}"
+
     try:
         r = requests.get(url, timeout=IMAGE_TIMEOUT, stream=True)
         r.raise_for_status()

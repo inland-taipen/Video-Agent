@@ -85,7 +85,7 @@ export default function App() {
           <div className="header-logo">
             <span className="logo-icon">🎬</span>
             <div>
-              <h1 className="header-title">StoryViz</h1>
+              <h1 className="header-title">Stories by Oldies</h1>
               <p className="header-sub">Story → Storyboard → Video</p>
             </div>
           </div>
