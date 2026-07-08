@@ -82,7 +82,7 @@ export default function App() {
         setIsGenerating(false);
       }
     },
-    [],
+    [geminiKey],
   );
 
   const handleVoiceStory = useCallback(
