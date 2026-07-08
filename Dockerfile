@@ -6,6 +6,13 @@ COPY frontend/package*.json ./
 ENV NODE_ENV=development
 RUN npm install
 COPY frontend/ ./
+# Accept build-time env vars for Vite (must be passed via Render's build args)
+ARG VITE_GEMINI_API_KEY
+ARG VITE_GROQ_API_KEY
+ARG VITE_BACKEND_URL
+ENV VITE_GEMINI_API_KEY=$VITE_GEMINI_API_KEY
+ENV VITE_GROQ_API_KEY=$VITE_GROQ_API_KEY
+ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
 RUN npm run build
 
 # Stage 2: Build the FastAPI backend with FFmpeg
