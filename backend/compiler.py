@@ -202,7 +202,8 @@ def compile_video(
             if frames[idx].media_type == "video":
                 cmd += ["-stream_loop", "-1", "-t", str(dur + XFADE_DURATION), "-i", str(img_path)]
             else:
-                cmd += ["-loop", "1", "-t", str(dur + XFADE_DURATION), "-i", str(img_path)]
+                # zoompan expects a single frame input, do not loop
+                cmd += ["-i", str(img_path)]
 
         # Input audio files
         audio_input_indices: List[Optional[int]] = []
@@ -316,6 +317,7 @@ def compile_video(
             "-preset", "fast",
             "-movflags", "+faststart",
             "-r", str(FPS),
+            "-t", str(total_audio_dur),
         ] + acodec_args + [str(output_path)]
 
         progress_cb(60, "Running FFmpeg…")

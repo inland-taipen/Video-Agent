@@ -132,7 +132,7 @@ export const VoiceUploadPanel: React.FC<Props> = ({ onUseStory }) => {
       <div className="voice-panel__header">
         <h2>🎙️ Voice Recording</h2>
         <p className="voice-panel__sub">
-          Upload a voice recording — Groq Whisper will transcribe, and Llama 3 will craft a cinematic story
+          Upload a voice recording — Groq Whisper will transcribe, and Gemini will craft a cinematic story
         </p>
       </div>
 

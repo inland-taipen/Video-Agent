@@ -32,11 +32,11 @@ export default function App() {
       setError('');
       setPipelineState({ stage: 'scriptwriter', message: 'Starting pipeline…', progress: 5 });
 
-      const groqKey = import.meta.env.VITE_GROQ_API_KEY?.trim();
+      const geminiKey = import.meta.env.VITE_GEMINI_API_KEY?.trim();
 
-      if (!groqKey) {
-        setError('Missing VITE_GROQ_API_KEY in frontend/.env — get a free key at console.groq.com');
-        setPipelineState({ stage: 'error', message: 'Missing Groq API key', progress: 0 });
+      if (!geminiKey) {
+        setError('Missing VITE_GEMINI_API_KEY in frontend/.env');
+        setPipelineState({ stage: 'error', message: 'Missing Gemini API key', progress: 0 });
         setIsGenerating(false);
         return;
       }
@@ -44,7 +44,7 @@ export default function App() {
       try {
         const result = await runPipeline({
           story,
-          apiKey: groqKey,
+          apiKey: geminiKey,
           style: st,
           seed,
           onProgress: (state) => setPipelineState(state),
@@ -90,7 +90,7 @@ export default function App() {
             </div>
           </div>
           <div className="header-badges">
-            <span className="badge">Groq (Llama 3)</span>
+            <span className="badge">Gemini (2.5 Flash)</span>
             <span className="badge">Pollinations.ai</span>
             <span className="badge">FFmpeg</span>
             <span className="badge badge--new">🎙️ Voice</span>
@@ -193,8 +193,8 @@ export default function App() {
       <footer className="app-footer">
         <p>
           Powered by{' '}
-          <a href="https://groq.com" target="_blank" rel="noopener noreferrer">
-            Groq API
+          <a href="https://ai.google.dev/" target="_blank" rel="noopener noreferrer">
+            Gemini API
           </a>{' '}
           ·{' '}
           <a href="https://pollinations.ai/" target="_blank" rel="noopener noreferrer">

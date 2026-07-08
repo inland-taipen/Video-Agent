@@ -1,14 +1,14 @@
 // src/agents/llm.ts — shared Groq LLM API caller
 
-const GROQ_BASE = 'https://api.groq.com/openai/v1';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/openai';
 
 export async function callLLM(
   apiKey: string,
   prompt: string,
   jsonMode = true,
-  model = 'llama-3.3-70b-versatile',
+  model = 'gemini-2.5-flash',
 ): Promise<string> {
-  const url = `${GROQ_BASE}/chat/completions`;
+  const url = `${GEMINI_BASE}/chat/completions`;
   const body = {
     model,
     messages: [
@@ -33,11 +33,11 @@ export async function callLLM(
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Groq API error ${res.status}: ${err.slice(0, 300)}`);
+    throw new Error(`Gemini API error ${res.status}: ${err.slice(0, 300)}`);
   }
 
   const data = await res.json();
   const text: string = data?.choices?.[0]?.message?.content ?? '';
-  if (!text) throw new Error('Empty response from Groq');
+  if (!text) throw new Error('Empty response from Gemini');
   return text;
 }
