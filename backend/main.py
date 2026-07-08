@@ -71,6 +71,15 @@ async def health():
     }
 
 
+@app.get("/api/config")
+async def config():
+    """Expose runtime config (API keys) to the frontend — avoids Vite build-time baking."""
+    return {
+        "gemini_api_key": os.getenv("GEMINI_API_KEY", ""),
+        "groq_api_key": os.getenv("GROQ_API_KEY", ""),
+    }
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Image generation — proxies free-tier providers (Pollinations / HuggingFace)
 # ─────────────────────────────────────────────────────────────────────────────

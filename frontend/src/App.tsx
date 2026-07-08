@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { InputPanel } from './components/InputPanel';
 import { VoiceUploadPanel } from './components/VoiceUploadPanel';
 import { PipelineStatus } from './components/PipelineStatus';
@@ -22,6 +22,23 @@ export default function App() {
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
   const [error, setError] = useState('');
   const [inputMode, setInputMode] = useState<InputMode>('write');
+  const [geminiKey, setGeminiKey] = useState<string>(
+    import.meta.env.VITE_GEMINI_API_KEY?.trim() || ''
+  );
+  const keyFetched = useRef(false);
+
+  // Fetch keys from backend at runtime (works on Render without build-time baking)
+  useEffect(() => {
+    if (keyFetched.current || geminiKey) return;
+    keyFetched.current = true;
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+    fetch(`${backendUrl}/api/config`)
+      .then((r) => r.json())
+      .then((cfg) => {
+        if (cfg.gemini_api_key) setGeminiKey(cfg.gemini_api_key);
+      })
+      .catch(() => { /* ignore — will show error on generate */ });
+  }, [geminiKey]);
 
   const handleGenerate = useCallback(
     async (story: string, st: StylePreset, seed: number) => {
@@ -32,10 +49,10 @@ export default function App() {
       setError('');
       setPipelineState({ stage: 'scriptwriter', message: 'Starting pipeline…', progress: 5 });
 
-      const geminiKey = import.meta.env.VITE_GEMINI_API_KEY?.trim();
+      const key = geminiKey;
 
-      if (!geminiKey) {
-        setError('Missing VITE_GEMINI_API_KEY in frontend/.env');
+      if (!key) {
+        setError('Missing Gemini API key — set GEMINI_API_KEY in your environment.');
         setPipelineState({ stage: 'error', message: 'Missing Gemini API key', progress: 0 });
         setIsGenerating(false);
         return;
@@ -44,7 +61,7 @@ export default function App() {
       try {
         const result = await runPipeline({
           story,
-          apiKey: geminiKey,
+          apiKey: key,
           style: st,
           seed,
           onProgress: (state) => setPipelineState(state),
