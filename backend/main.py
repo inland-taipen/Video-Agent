@@ -27,11 +27,13 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from gtts import gTTS
 
+from pydantic import BaseModel
+
 from compiler import compile_video
 from image_gen import fetch_scene_image
 from models import ExportRequest, ExportStatus, TTSRequest, TTSResponse
 
-load_dotenv()
+load_dotenv(Path(__file__).parent.parent / ".env", override=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 app = FastAPI(title="Story Visualizer API", version="1.0.0")
@@ -98,6 +100,30 @@ async def generate_image(prompt: str, seed: int = 42, width: int = 1024, height:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Image generation — FLUX.1-schnell via HF Inference API (free tier)
+# Falls back to Pollinations.ai if HF unavailable
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ImagenRequest(BaseModel):
+    prompt: str
+    seed: int = 42
+    aspect_ratio: str = "16:9"
+
+@app.post("/api/imagen")
+async def imagen_generate(req: ImagenRequest):
+    if not req.prompt.strip():
+        raise HTTPException(400, "prompt is empty")
+    try:
+        # fetch_scene_image: tries HF FLUX.1-schnell → Pollinations → placeholder
+        data = fetch_scene_image(req.prompt.strip(), req.seed, width=1024, height=576)
+    except Exception as exc:
+        raise HTTPException(500, f"Image generation failed: {exc}")
+
+    import base64
+    b64 = base64.b64encode(data).decode()
+    return JSONResponse({"dataUrl": f"data:image/jpeg;base64,{b64}"})
+
+# ─────────────────────────────────────────────────────────────────────────────
 # TTS endpoint — synthesise one scene's narration
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -106,16 +132,24 @@ async def tts(req: TTSRequest):
     if not req.text.strip():
         raise HTTPException(400, "text is empty")
 
-    text_hash = hashlib.md5(f"{req.text}_{req.lang}".encode()).hexdigest()[:12]
+    # Use a stable hash that includes the voice for cache correctness
+    EDGE_VOICE = "en-US-GuyNeural"  # Cinematic, warm male narrator
+    text_hash = hashlib.md5(f"{req.text}_{EDGE_VOICE}".encode()).hexdigest()[:12]
     fname = f"scene_{req.scene_number}_{text_hash}.mp3"
     dest = TTS_DIR / fname
 
     if not dest.exists():
         try:
-            tts_obj = gTTS(text=req.text, lang=req.lang, slow=False)
-            tts_obj.save(str(dest))
-        except Exception as exc:
-            raise HTTPException(500, f"TTS failed: {exc}")
+            import edge_tts
+            communicate = edge_tts.Communicate(req.text.strip(), EDGE_VOICE)
+            await communicate.save(str(dest))
+        except Exception as edge_err:
+            print(f"  [WARN] edge-tts failed ({edge_err}), falling back to gTTS")
+            try:
+                tts_obj = gTTS(text=req.text, lang=req.lang, slow=False)
+                tts_obj.save(str(dest))
+            except Exception as exc:
+                raise HTTPException(500, f"TTS failed: {exc}")
 
     return TTSResponse(
         scene_number=req.scene_number,

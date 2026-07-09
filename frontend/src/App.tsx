@@ -108,7 +108,7 @@ export default function App() {
           </div>
           <div className="header-badges">
             <span className="badge">Gemini (2.5 Flash)</span>
-            <span className="badge">Pollinations.ai</span>
+            <span className="badge">FLUX.1-schnell</span>
             <span className="badge">FFmpeg</span>
             <span className="badge badge--new">🎙️ Voice</span>
           </div>
@@ -214,8 +214,8 @@ export default function App() {
             Gemini API
           </a>{' '}
           ·{' '}
-          <a href="https://pollinations.ai/" target="_blank" rel="noopener noreferrer">
-            Pollinations.ai
+          <a href="https://huggingface.co/black-forest-labs/FLUX.1-schnell" target="_blank" rel="noopener noreferrer">
+            FLUX.1-schnell
           </a>{' '}
           · FFmpeg · gTTS
         </p>

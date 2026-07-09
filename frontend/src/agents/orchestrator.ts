@@ -27,7 +27,7 @@ export async function runPipeline(opts: OrchestratorOptions): Promise<Storyboard
   } catch (err: unknown) {
     throw new Error(`Scriptwriter failed: ${err instanceof Error ? err.message : String(err)}`);
   }
-  onProgress({ stage: 'visual_director', message: `🎨 Visual Director enriching ${scenes.length} scenes…`, progress: 40 });
+  onProgress({ stage: 'visual_director', message: `🎨 Visual Director enriching ${scenes.length} scenes…`, progress: 35 });
 
   // Agent 2: Visual Director
   let enrichedScenes;
@@ -38,31 +38,21 @@ export async function runPipeline(opts: OrchestratorOptions): Promise<Storyboard
     enrichedScenes = scenes;
   }
 
-  onProgress({ stage: 'storyboard', message: '🖼️ Building storyboard image URLs (Pollinations.ai)…', progress: 50 });
+  onProgress({ stage: 'storyboard', message: `🖼️ Imagen 3 generating ${enrichedScenes.length} images…`, progress: 50 });
 
-  try {
-    const health = await fetch('/api/health');
-    if (!health.ok) {
-      throw new Error('Backend not reachable. Run ./start.sh so images can be generated.');
-    }
-  } catch {
-    throw new Error('Backend not running at /api/health. Run ./start.sh to start backend + frontend.');
-  }
-
-  // Agent 3: Storyboard (free image APIs via backend proxy)
-  const frames = runStoryboard(enrichedScenes, seed);
-
-  onProgress({ stage: 'storyboard', message: `🖼️ Loading ${frames.length} images…`, progress: 55 });
-
-  await preloadImages(frames, (index) => {
+  // Agent 3: Storyboard — Imagen 3 image generation (parallel)
+  const frames = await runStoryboard(enrichedScenes, seed, apiKey, (index) => {
     onFrameLoaded(index);
-    const pct = 55 + Math.round(((index + 1) / frames.length) * 40);
+    const pct = 50 + Math.round(((index + 1) / enrichedScenes.length) * 45);
     onProgress({
       stage: 'storyboard',
-      message: `🖼️ Loaded image ${index + 1} of ${frames.length}`,
+      message: `🖼️ Generated image ${index + 1} of ${enrichedScenes.length}`,
       progress: pct,
     });
   });
+
+  // preloadImages is now a no-op since images are base64 data URLs
+  await preloadImages(frames, () => {});
 
   onProgress({ stage: 'done', message: `✅ ${frames.length} scenes ready!`, progress: 100 });
 

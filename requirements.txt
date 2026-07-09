@@ -13,3 +13,9 @@ python-dotenv>=1.0.0
 # Optional: better fallback images (blank placeholder when Pollinations fails)
 # Remove this line if you don't want Pillow as a dependency.
 Pillow>=10.0.0
+
+# Hugging Face integration
+huggingface_hub>=0.24.0
+
+# Text-to-Speech
+edge-tts>=6.1.9

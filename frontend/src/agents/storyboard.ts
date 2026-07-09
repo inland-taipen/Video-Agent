@@ -1,64 +1,52 @@
 // src/agents/storyboard.ts
-// Agent 3: Pure logic — builds Pollinations image URLs, assigns seeds, returns StoryboardFrame[]
+// Agent 3: Generates images with Imagen 3 (Google), assigns seeds, returns StoryboardFrame[]
 
 import { Scene, StoryboardFrame } from '../types';
+import { generateImageWithImagen } from './imagen';
 
-// Use Vite dev proxy (/api → backend) so images load same-origin in the browser.
-const IMAGE_API_BASE = '/api/image';
+export async function runStoryboard(
+  scenes: Scene[],
+  globalSeed: number,
+  apiKey: string,
+  onImageReady: (index: number, frame: StoryboardFrame) => void,
+): Promise<StoryboardFrame[]> {
+  const results: StoryboardFrame[] = new Array(scenes.length);
 
-function buildImageUrl(visualDescription: string, style: string, seed: number): string {
-  const fullPrompt = [visualDescription, style].filter(Boolean).join(', ');
-  const params = new URLSearchParams({
-    prompt: fullPrompt,
-    seed: String(seed),
-    width: '1024',
-    height: '576',
-  });
-  return `${IMAGE_API_BASE}?${params}`;
+  await Promise.all(
+    scenes.map(async (scene, i) => {
+      const seed = globalSeed + scene.scene_number;
+      const prompt = [scene.visual_description, scene.style].filter(Boolean).join(', ');
+
+      let mediaUrl = '';
+      try {
+        mediaUrl = await generateImageWithImagen(prompt, apiKey);
+      } catch (err) {
+        console.warn(`Imagen 3 failed for scene ${scene.scene_number}:`, err);
+        // Fallback: blank placeholder so the pipeline doesn't crash
+        mediaUrl = '';
+      }
+
+      const enrichedScene: Scene = { ...scene, seed, media_url: mediaUrl, media_type: 'image' };
+      const frame: StoryboardFrame = {
+        scene: enrichedScene,
+        media_url: mediaUrl,
+        media_type: 'image',
+        mediaLoaded: false,
+      };
+
+      results[i] = frame;
+      onImageReady(i, frame);
+    }),
+  );
+
+  return results;
 }
 
-export function runStoryboard(scenes: Scene[], globalSeed: number): StoryboardFrame[] {
-  return scenes.map((scene) => {
-    const seed = globalSeed + scene.scene_number;
-    const imageUrl = buildImageUrl(scene.visual_description, scene.style, seed);
-    const enrichedScene: Scene = { ...scene, seed, media_url: imageUrl, media_type: 'image' };
-    return {
-      scene: enrichedScene,
-      media_url: imageUrl,
-      media_type: 'image',
-      mediaLoaded: false,
-    };
-  });
-}
-
+/** No-op preloader — images are already data URLs (base64), no HTTP preloading needed. */
 export function preloadImages(
   frames: StoryboardFrame[],
   onImageLoad: (index: number) => void,
 ): Promise<void> {
-  return new Promise((resolve) => {
-    let currentIndex = 0;
-
-    function loadNext() {
-      if (currentIndex >= frames.length) {
-        resolve();
-        return;
-      }
-      const i = currentIndex;
-      const frame = frames[i];
-
-      const img = new Image();
-
-      const handleDone = () => {
-        onImageLoad(i);
-        currentIndex++;
-        loadNext();
-      };
-
-      img.onload = handleDone;
-      img.onerror = handleDone;
-      img.src = frame.media_url;
-    }
-
-    loadNext();
-  });
+  frames.forEach((_, i) => onImageLoad(i));
+  return Promise.resolve();
 }
