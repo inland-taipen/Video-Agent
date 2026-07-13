@@ -69,6 +69,7 @@ export type StylePreset =
   | 'Storybook'
   | 'Cinematic'
   | 'Anime'
+  | 'Realistic Anime'
   | 'Watercolor'
   | 'Noir'
   | 'Sci-Fi'
@@ -85,7 +86,9 @@ export const STYLE_DESCRIPTIONS: Record<StylePreset, string> = {
   Cinematic:
     'cinematic lighting, shallow depth of field, anamorphic lens, golden hour palette',
   Anime:
-    'anime style, cel shaded, vibrant colors, dynamic composition, studio Ghibli inspired',
+    'anime style, cel shaded, vibrant colors, dynamic composition, studio Ghibli inspired, expressive characters, beautiful backgrounds',
+  'Realistic Anime':
+    'hyper-realistic anime art style, Makoto Shinkai cinematic quality, ultra-detailed backgrounds, dramatic volumetric lighting, photorealistic textures with anime aesthetics, 8K quality, masterpiece illustration',
   Watercolor:
     'watercolor painting, soft washes, visible brush strokes, pastel tones, impressionist',
   Noir:

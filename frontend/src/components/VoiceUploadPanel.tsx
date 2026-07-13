@@ -26,11 +26,11 @@ const STAGES = [
 ];
 
 const STYLE_PRESETS: StylePreset[] = [
-  'Storybook', 'Cinematic', 'Anime', 'Watercolor', 'Noir', 'Sci-Fi', 'Fantasy', 'Documentary',
+  'Storybook', 'Cinematic', 'Anime', 'Realistic Anime', 'Watercolor', 'Noir', 'Sci-Fi', 'Fantasy', 'Documentary',
   'Drone Footage', 'Macro', 'Dynamic', 'Photorealistic'
 ];
 const STYLE_ICONS: Record<StylePreset, string> = {
-  Storybook: '📖', Cinematic: '🎬', Anime: '✨', Watercolor: '🎨', Noir: '🌑',
+  Storybook: '📖', Cinematic: '🎬', Anime: '✨', 'Realistic Anime': '🎌', Watercolor: '🎨', Noir: '🌑',
   'Sci-Fi': '🚀', Fantasy: '🧙', Documentary: '📷',
   'Drone Footage': '🚁', Macro: '🔍', Dynamic: '⚡', Photorealistic: '📸'
 };

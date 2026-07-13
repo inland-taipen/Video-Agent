@@ -11,9 +11,42 @@
 //   Gemini produces photorealistic images well-suited to documentary visuals.
 //   Falls back to Pollinations/HF automatically if Gemini image is unavailable.
 
-import { Scene, StoryboardFrame, GenerationMode } from '../types';
+import { Scene, StoryboardFrame, GenerationMode, StylePreset } from '../types';
 import { generateImageWithImagen } from './imagen';
 import { compileImagePrompt, StoryMemory } from './memory';
+
+// Styles best served by FLUX (most styles actually — it's the best model)
+const FLUX_STYLES: StylePreset[] = [
+  'Anime', 'Realistic Anime', 'Cinematic', 'Sci-Fi', 'Fantasy', 'Noir', 'Dynamic', 'Photorealistic',
+];
+
+// ── FLUX image client (fal.ai) ───────────────────────────────────────────────
+
+/**
+ * Generate a high-quality image via FLUX.1 through the backend proxy.
+ * Returns a base64 data URL.
+ */
+async function generateImageWithFlux(
+  prompt: string,
+  seed: number,
+  model: 'dev' | 'schnell' = 'dev',
+): Promise<string> {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+  const res = await fetch(`${backendUrl}/api/flux-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, seed, aspect_ratio: '16:9', model }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`FLUX backend error ${res.status}: ${err.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  if (!data.dataUrl) throw new Error('FLUX returned no image data');
+  return data.dataUrl;
+}
 
 // ── Gemini image client ──────────────────────────────────────────────────────
 
@@ -47,26 +80,40 @@ async function generateImageWithGemini(
 // ── Image router ─────────────────────────────────────────────────────────────
 
 /**
- * Select the appropriate image generator based on mode.
+ * Waterfall image generation:
+ *   1. FLUX/dev via fal.ai (best quality, anime + realistic styles)
+ *   2. Gemini image (photorealistic fallback, great for documentary)
+ *   3. Pollinations/HF (free-tier last resort)
  *
- * animated    → Pollinations/HF (styled, anime-capable, cost-free)
- * documentary → Gemini native image (photorealistic, aligned with BBC/NatGeo style)
- *               Falls back to Pollinations/HF automatically via the backend.
+ * FLUX_STYLES get FLUX first. Documentary gets Gemini first.
+ * All failures gracefully fall through to the next provider.
  */
 async function generateImage(
   prompt: string,
   apiKey: string,
   seed: number,
   mode: GenerationMode,
+  style?: StylePreset,
 ): Promise<string> {
+  const useFluxFirst = style && FLUX_STYLES.includes(style);
+
+  if (useFluxFirst) {
+    try {
+      return await generateImageWithFlux(prompt, seed, 'dev');
+    } catch (err) {
+      console.warn('FLUX failed, trying Gemini:', err);
+    }
+  }
+
+  // Gemini — great for photorealistic / documentary
   try {
-    // Try high-quality Gemini Image generation first for ALL styles
     return await generateImageWithGemini(prompt, seed, mode);
   } catch (err) {
-    console.warn(`Gemini image failed or blocked, falling back to Pollinations/HF:`, err);
-    // Graceful fallback for safety filter blocks (violence/real people) or if key is missing
-    return await generateImageWithImagen(prompt, apiKey, seed, mode);
+    console.warn('Gemini image failed, falling back to Pollinations/HF:', err);
   }
+
+  // Last resort
+  return await generateImageWithImagen(prompt, apiKey, seed, mode);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -78,6 +125,7 @@ export async function runStoryboard(
   onImageReady: (index: number, frame: StoryboardFrame) => void,
   memory?: StoryMemory,
   mode: GenerationMode = 'animated',
+  style?: StylePreset,
 ): Promise<StoryboardFrame[]> {
   const results: StoryboardFrame[] = new Array(scenes.length);
 
@@ -92,7 +140,7 @@ export async function runStoryboard(
 
       let mediaUrl = '';
       try {
-        mediaUrl = await generateImage(prompt, apiKey, seed, mode);
+        mediaUrl = await generateImage(prompt, apiKey, seed, mode, style);
       } catch (err) {
         console.warn(`Image generation failed for scene ${scene.scene_number}:`, err);
         mediaUrl = '';

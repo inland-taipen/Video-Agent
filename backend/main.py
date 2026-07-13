@@ -278,6 +278,106 @@ async def imagen_generate(req: ImagenRequest):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# FLUX Image Generation via fal.ai
+# Best-in-class open-weights model — ideal for realistic anime & cinematic art.
+# Models: flux/dev (quality), flux/schnell (speed)
+# Sign up at https://fal.ai to get a free FAL_API_KEY
+# ─────────────────────────────────────────────────────────────────────────────
+
+class FluxImageRequest(BaseModel):
+    prompt: str
+    seed: int = 42
+    aspect_ratio: str = "16:9"
+    model: str = "dev"  # "dev" = quality, "schnell" = fast
+
+
+def _call_flux(prompt: str, key: str, model: str, seed: int) -> bytes:
+    """Call FLUX.1 via fal.ai REST API. Returns raw image bytes."""
+    import requests as _req
+
+    fal_model = f"fal-ai/flux/{model}"
+    r = _req.post(
+        f"https://fal.run/{fal_model}",
+        headers={"Authorization": f"Key {key}", "Content-Type": "application/json"},
+        json={
+            "prompt": prompt,
+            "image_size": "landscape_16_9",
+            "num_inference_steps": 28 if model == "dev" else 4,
+            "seed": seed,
+            "num_images": 1,
+            "enable_safety_checker": False,
+        },
+        timeout=120,
+    )
+    if r.status_code != 200:
+        raise RuntimeError(f"FLUX/{model} {r.status_code}: {r.text[:300]}")
+
+    data = r.json()
+    images = data.get("images", [])
+    if not images:
+        raise RuntimeError(f"FLUX returned no images")
+
+    # fal.ai returns a URL — fetch the actual image bytes
+    img_url = images[0].get("url", "")
+    if not img_url:
+        raise RuntimeError("FLUX returned no image URL")
+    img_r = _req.get(img_url, timeout=30)
+    img_r.raise_for_status()
+    return img_r.content
+
+
+@app.post("/api/flux-image")
+async def flux_image_generate(req: FluxImageRequest):
+    """Generate a high-quality image via FLUX.1 (fal.ai).
+
+    Uses FAL_API_KEY from env. Falls back to Gemini → HF/Pollinations.
+    Best for: realistic anime, cinematic, documentary, fantasy styles.
+    """
+    if not req.prompt.strip():
+        raise HTTPException(400, "prompt is empty")
+
+    import base64
+
+    fal_key = os.getenv("FAL_API_KEY", "").strip()
+
+    if fal_key:
+        for model in [req.model, "schnell"] if req.model == "dev" else [req.model]:
+            try:
+                raw = _call_flux(req.prompt.strip(), fal_key, model, req.seed)
+                b64 = base64.b64encode(raw).decode()
+                mime = "image/png" if raw[:4] == b'\x89PNG' else "image/jpeg"
+                print(f"  [OK] FLUX image via fal.ai/{model}")
+                return JSONResponse({"dataUrl": f"data:{mime};base64,{b64}", "provider": f"flux/{model}"})
+            except Exception as exc:
+                print(f"  [WARN] FLUX/{model}: {str(exc)[:120]}")
+    else:
+        print("  [INFO] No FAL_API_KEY — falling back to Gemini/HF/Pollinations")
+
+    # Fallback to Gemini image
+    gemini_key = (
+        os.getenv("GEMINI_IMAGE_KEY", "").strip()
+        or os.getenv("GEMINI_API_KEY", "").strip()
+    )
+    if gemini_key:
+        for g_model in ["gemini-2.5-flash-image"]:
+            try:
+                raw = _call_gemini_image(req.prompt.strip(), gemini_key, g_model)
+                b64 = base64.b64encode(raw).decode()
+                mime = "image/png" if raw[:4] == b'\x89PNG' else "image/jpeg"
+                return JSONResponse({"dataUrl": f"data:{mime};base64,{b64}", "provider": f"gemini/{g_model}"})
+            except Exception as exc:
+                print(f"  [WARN] Gemini fallback {g_model}: {str(exc)[:120]}")
+
+    # Final fallback — Pollinations/HF
+    try:
+        data = fetch_scene_image(req.prompt.strip(), req.seed, width=1024, height=576, mode="animated")
+        b64 = base64.b64encode(data).decode()
+        return JSONResponse({"dataUrl": f"data:image/jpeg;base64,{b64}", "provider": "fallback"})
+    except Exception as exc:
+        raise HTTPException(500, f"All image providers failed: {exc}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Gemini Image Generation (documentary mode)
 # Cascades through available image models; falls back to HF/Pollinations.
 # ─────────────────────────────────────────────────────────────────────────────
