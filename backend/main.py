@@ -278,6 +278,47 @@ async def imagen_generate(req: ImagenRequest):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# HuggingFace FLUX.1-schnell Image Generation
+# Uses the existing HF_TOKEN — no new signup needed.
+# Produces high-quality anime, cinematic, realistic images.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class HFImageRequest(BaseModel):
+    prompt: str
+    seed: int = 42
+    style: str = "default"  # maps to FLUX_STYLE_PROMPTS keys
+
+
+@app.post("/api/hf-image")
+async def hf_image_generate(req: HFImageRequest):
+    """Generate via HuggingFace FLUX.1-schnell (free, uses existing HF_TOKEN).
+    Enhances prompt with style-specific keywords for best results.
+    Returns 503 if HF_TOKEN is not set.
+    """
+    if not req.prompt.strip():
+        raise HTTPException(400, "prompt is empty")
+
+    import base64
+    from image_gen import _try_huggingface, FLUX_STYLE_PROMPTS
+
+    hf_token = os.getenv("HF_TOKEN", "").strip()
+    if not hf_token:
+        raise HTTPException(503, "HF_TOKEN not set")
+
+    style_suffix = FLUX_STYLE_PROMPTS.get(req.style, FLUX_STYLE_PROMPTS["default"])
+    enhanced_prompt = f"{req.prompt.strip()}, {style_suffix}"
+
+    raw = _try_huggingface(enhanced_prompt, width=1024, height=576)
+    if raw:
+        b64 = base64.b64encode(raw).decode()
+        mime = "image/png" if raw[:4] == b'\x89PNG' else "image/jpeg"
+        print(f"  [OK] HuggingFace FLUX image style={req.style}")
+        return JSONResponse({"dataUrl": f"data:{mime};base64,{b64}", "provider": "hf/flux-schnell"})
+
+    raise HTTPException(503, "HuggingFace FLUX generation failed")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # FLUX Image Generation via fal.ai
 # Best-in-class open-weights model — ideal for realistic anime & cinematic art.
 # Models: flux/dev (quality), flux/schnell (speed)

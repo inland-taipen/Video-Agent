@@ -15,7 +15,7 @@ import { Scene, StoryboardFrame, GenerationMode, StylePreset } from '../types';
 import { generateImageWithImagen } from './imagen';
 import { compileImagePrompt, StoryMemory } from './memory';
 
-// Style mappings for Stable Horde model selection
+// Style mappings for image routing
 const HORDE_ANIME_STYLES: StylePreset[] = ['Anime', 'Realistic Anime'];
 const HORDE_CINEMATIC_STYLES: StylePreset[] = ['Cinematic', 'Noir', 'Dynamic', 'Photorealistic'];
 const HORDE_STYLED: StylePreset[] = [...HORDE_ANIME_STYLES, ...HORDE_CINEMATIC_STYLES, 'Sci-Fi', 'Fantasy', 'Documentary'];
@@ -23,6 +23,48 @@ const HORDE_STYLED: StylePreset[] = [...HORDE_ANIME_STYLES, ...HORDE_CINEMATIC_S
 // Style mappings for Leonardo AI fallback model selection
 const LEONARDO_ANIME_STYLES: StylePreset[] = ['Anime', 'Realistic Anime'];
 const LEONARDO_CINEMATIC_STYLES: StylePreset[] = ['Cinematic', 'Noir', 'Dynamic', 'Photorealistic'];
+
+// ── HuggingFace FLUX.1-schnell (PRIMARY — uses existing HF_TOKEN, always free) ──
+
+const HF_STYLE_MAP: Partial<Record<StylePreset, string>> = {
+  'Anime':           'anime',
+  'Realistic Anime': 'realistic_anime',
+  'Cinematic':       'cinematic',
+  'Noir':            'noir',
+  'Documentary':     'documentary',
+  'Fantasy':         'fantasy',
+  'Sci-Fi':          'cinematic',
+  'Dynamic':         'cinematic',
+  'Photorealistic':  'documentary',
+};
+
+/**
+ * Generate via HuggingFace FLUX.1-schnell — free, uses existing HF_TOKEN.
+ * Backend adds style-specific prompt enhancements for best results.
+ */
+async function generateImageWithHF(
+  prompt: string,
+  seed: number,
+  style: StylePreset,
+): Promise<string> {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+  const hfStyle = HF_STYLE_MAP[style] ?? 'default';
+
+  const res = await fetch(`${backendUrl}/api/hf-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, seed, style: hfStyle }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`HF backend error ${res.status}: ${err.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  if (!data.dataUrl) throw new Error('HF returned no image data');
+  return data.dataUrl;
+}
 
 // ── Stable Horde image client ──────────────────────────────────────────────
 
@@ -129,10 +171,11 @@ async function generateImageWithGemini(
 
 /**
  * Waterfall image generation:
- *   1. Stable Horde (free, community GPU, Anime/DreamShaper/Realistic Vision models)
- *   2. Leonardo AI (fallback if Horde unavailable)
- *   3. Gemini image (photorealistic fallback)
- *   4. Pollinations/HF (free-tier last resort)
+ *   1. HuggingFace FLUX.1-schnell (FREE, HF_TOKEN already set — no new keys needed)
+ *   2. Stable Horde (community GPU, STABLE_HORDE_API_KEY)
+ *   3. Leonardo AI (LEONARDO_API_KEY)
+ *   4. Gemini image
+ *   5. Pollinations/HF (absolute last resort)
  */
 async function generateImage(
   prompt: string,
@@ -143,14 +186,21 @@ async function generateImage(
 ): Promise<string> {
   const effectiveStyle: StylePreset = style ?? 'Cinematic';
 
-  // Primary: Stable Horde — free, no card, great anime quality
+  // 1. HuggingFace FLUX — already configured, completely free
+  try {
+    return await generateImageWithHF(prompt, seed, effectiveStyle);
+  } catch (err) {
+    console.warn('HF FLUX failed, trying Horde:', err);
+  }
+
+  // 2. Stable Horde — free community GPUs
   try {
     return await generateImageWithHorde(prompt, seed, effectiveStyle);
   } catch (err) {
     console.warn('Horde failed, trying Leonardo:', err);
   }
 
-  // Secondary: Leonardo AI (if key is set)
+  // 3. Leonardo AI (if key is set)
   if (style && HORDE_STYLED.includes(style)) {
     try {
       return await generateImageWithLeonardo(prompt, seed, style);

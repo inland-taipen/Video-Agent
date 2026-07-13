@@ -55,6 +55,17 @@ _ANIMATED_SUFFIX = os.getenv(
     ", no text, no watermark, no gore, no weapons, no horror, safe for children",
 )
 
+# Anime style suffixes optimized for FLUX
+FLUX_STYLE_PROMPTS: dict[str, str] = {
+    "anime":          "anime style, cel shaded, vibrant colors, Studio Ghibli, expressive characters, beautiful backgrounds, masterpiece",
+    "realistic_anime": "hyper-realistic anime, Makoto Shinkai quality, ultra-detailed, photorealistic textures, cinematic lighting, 8K, masterpiece",
+    "cinematic":      "cinematic photography, dramatic lighting, shallow depth of field, film grain, anamorphic lens",
+    "documentary":    "documentary photography, BBC Earth style, natural lighting, National Geographic quality, photorealistic",
+    "fantasy":        "epic fantasy concept art, magical lighting, highly detailed, artstation quality, dramatic",
+    "noir":           "film noir, high contrast black and white, dramatic shadows, rain-slicked streets, moody",
+    "default":        "high quality, detailed, beautiful, 8K",
+}
+
 _DOCUMENTARY_PREFIX = (
     "photorealistic, professional nature photography, BBC Earth style, "
     "National Geographic quality, ultra detailed, natural lighting, "
@@ -119,20 +130,20 @@ def _try_pollinations(prompt: str, seed: int, width: int, height: int) -> bytes 
     return None
 
 
-def _try_huggingface(prompt: str, width: int, height: int) -> bytes | None:
+def _try_huggingface(prompt: str, width: int, height: int, model: str = "black-forest-labs/FLUX.1-schnell") -> bytes | None:
     token = os.getenv("HF_TOKEN", "").strip()
     if not token:
         return None
     try:
         r = requests.post(
-            "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell",
+            f"https://api-inference.huggingface.co/models/{model}",
             headers={"Authorization": f"Bearer {token}"},
             json={"inputs": prompt, "parameters": {"width": width, "height": height}},
             timeout=IMAGE_TIMEOUT,
         )
         if r.status_code == 200 and r.headers.get("content-type", "").startswith("image"):
             return r.content
-        print(f"  [WARN] HuggingFace {r.status_code}: {r.text[:200]}")
+        print(f"  [WARN] HuggingFace/{model} {r.status_code}: {r.text[:200]}")
     except Exception as exc:
         print(f"  [WARN] HuggingFace request failed: {exc}")
     return None
