@@ -7,7 +7,7 @@ import { StoryboardGrid } from './components/StoryboardGrid';
 import { CanvasPlayer } from './components/CanvasPlayer';
 import { ExportPanel } from './components/ExportPanel';
 import { runPipeline } from './agents/orchestrator';
-import { PipelineState, StoryboardFrame, StylePreset } from './types';
+import { PipelineState, StoryboardFrame, StylePreset, GenerationMode } from './types';
 
 
 const IDLE_STATE: PipelineState = { stage: 'idle', message: '', progress: 0 };
@@ -22,26 +22,11 @@ export default function App() {
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
   const [error, setError] = useState('');
   const [inputMode, setInputMode] = useState<InputMode>('write');
-  const [geminiKey, setGeminiKey] = useState<string>(
-    import.meta.env.VITE_GEMINI_API_KEY?.trim() || ''
-  );
-  const keyFetched = useRef(false);
-
-  // Fetch keys from backend at runtime (works on Render without build-time baking)
-  useEffect(() => {
-    if (keyFetched.current || geminiKey) return;
-    keyFetched.current = true;
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
-    fetch(`${backendUrl}/api/config`)
-      .then((r) => r.json())
-      .then((cfg) => {
-        if (cfg.gemini_api_key) setGeminiKey(cfg.gemini_api_key);
-      })
-      .catch(() => { /* ignore — will show error on generate */ });
-  }, [geminiKey]);
+  // LLM calls are proxied through the backend (/api/llm); no key needed here.
+  const [geminiKey] = useState<string>('backend-proxied');
 
   const handleGenerate = useCallback(
-    async (story: string, st: StylePreset, seed: number) => {
+    async (story: string, st: StylePreset, seed: number, mode: GenerationMode = 'storybook') => {
       setIsGenerating(true);
       setFrames([]);
       setLoadedImages(new Set());
@@ -64,6 +49,7 @@ export default function App() {
           apiKey: key,
           style: st,
           seed,
+          mode,
           onProgress: (state) => setPipelineState(state),
           onFrameLoaded: (i) => {
             setLoadedImages((prev) => {
@@ -82,12 +68,12 @@ export default function App() {
         setIsGenerating(false);
       }
     },
-    [geminiKey],
+    [],
   );
 
   const handleVoiceStory = useCallback(
     (story: string, st: StylePreset) => {
-      handleGenerate(story, st, Math.floor(Math.random() * 99999));
+      handleGenerate(story, st, Math.floor(Math.random() * 99999), 'storybook');
     },
     [handleGenerate],
   );

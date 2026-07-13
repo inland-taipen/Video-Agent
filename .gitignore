@@ -1,0 +1,35 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Generated outputs (large binary files, not source)
+backend/outputs/
+outputs/
+
+# Frontend build artifacts
+frontend/dist/
+frontend/node_modules/
+
+# Patch diffs (scratch files)
+patch*.diff
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*

@@ -1,34 +1,17 @@
-// src/agents/llm.ts — shared Groq LLM API caller
-
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/openai';
+// src/agents/llm.ts — shared LLM caller, proxied through the backend
+// The Gemini API key lives ONLY in backend/.env; the browser never sees it.
 
 export async function callLLM(
-  apiKey: string,
+  _apiKey: string, // kept for signature compatibility; backend reads key from env
   prompt: string,
   jsonMode = true,
   model = 'gemini-2.5-flash',
 ): Promise<string> {
-  const url = `${GEMINI_BASE}/chat/completions`;
-  const body = {
-    model,
-    messages: [
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
-    temperature: 0.2,
-    top_p: 0.95,
-    ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
-  };
-
-  const res = await fetch(url, {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+  const res = await fetch(`${backendUrl}/api/llm`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, json_mode: jsonMode, model }),
   });
 
   if (!res.ok) {
@@ -37,7 +20,7 @@ export async function callLLM(
   }
 
   const data = await res.json();
-  const text: string = data?.choices?.[0]?.message?.content ?? '';
+  const text: string = data?.text ?? '';
   if (!text) throw new Error('Empty response from Gemini');
   return text;
 }

@@ -8,12 +8,14 @@
 export async function generateImageWithImagen(
   prompt: string,
   _apiKey: string,  // kept for signature compatibility; backend reads key from env
+  seed: number = 42,
+  mode: string = "animated",
 ): Promise<string> {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
   const res = await fetch(`${backendUrl}/api/imagen`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, aspect_ratio: '16:9' }),
+    body: JSON.stringify({ prompt, seed, aspect_ratio: '16:9', mode }),
   });
 
   if (!res.ok) {

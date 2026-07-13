@@ -54,8 +54,40 @@ class TTSRequest(BaseModel):
     text: str
     scene_number: int
     lang: str = "en"
+    voice: Optional[str] = None   # e.g. "en-US-JennyNeural"
+    rate: Optional[str] = None    # e.g. "-8%"
+    pitch: Optional[str] = None   # e.g. "+0Hz"
 
 
 class TTSResponse(BaseModel):
     scene_number: int
     audio_url: str
+
+
+# ── V2.1: Character Memory & Validation schemas ─────────────────────────────
+
+class CharacterMemory(BaseModel):
+    appearance: str = ""
+    clothing: str = ""
+    personality: str = ""
+    relationships: List[str] = []
+    weapons: List[str] = []
+    powers: List[str] = []
+
+
+class StoryValidationError(BaseModel):
+    scene_number: int
+    field: str
+    message: str
+
+
+class StoryValidationResult(BaseModel):
+    valid: bool
+    errors: List[StoryValidationError] = []
+    warnings: List[str] = []
+
+
+class ValidateRequest(BaseModel):
+    scenes: List[Scene]
+    characters: Optional[dict] = None
+

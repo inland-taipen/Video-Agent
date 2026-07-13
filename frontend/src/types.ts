@@ -1,5 +1,32 @@
 // src/types.ts — shared domain types
 
+// ── Generation Mode ─────────────────────────────────────────────────────────
+// Strategy discriminant: controls prompts, style templates, and quality
+// modifiers throughout the pipeline. The pipeline itself is identical.
+
+export type GenerationMode = 'animated' | 'documentary' | 'storybook';
+
+export const MODE_CONFIG: Record<
+  GenerationMode,
+  { label: string; icon: string; description: string }
+> = {
+  animated: {
+    label: 'Animated Story',
+    icon: '🎌',
+    description: 'Cinematic anime story with vivid characters and drama',
+  },
+  documentary: {
+    label: 'Documentary',
+    icon: '🌍',
+    description: 'Educational, calm, photorealistic BBC Earth style',
+  },
+  storybook: {
+    label: 'Storybook',
+    icon: '📚',
+    description: 'Soft illustrated children\'s tale with watercolor warmth',
+  },
+};
+
 export interface DialogueLine {
   speaker: string;
   line: string;
@@ -39,17 +66,24 @@ export interface ExportStatus {
 }
 
 export type StylePreset =
+  | 'Storybook'
   | 'Cinematic'
   | 'Anime'
   | 'Watercolor'
   | 'Noir'
   | 'Sci-Fi'
   | 'Fantasy'
-  | 'Documentary';
+  | 'Documentary'
+  | 'Drone Footage'
+  | 'Macro'
+  | 'Dynamic'
+  | 'Photorealistic';
 
 export const STYLE_DESCRIPTIONS: Record<StylePreset, string> = {
+  Storybook:
+    "children's storybook illustration, hand-painted, soft warm colors, gentle rounded shapes, cozy and whimsical, consistent character design across scenes",
   Cinematic:
-    'photorealistic, cinematic lighting, shallow depth of field, anamorphic lens, golden hour palette',
+    'cinematic lighting, shallow depth of field, anamorphic lens, golden hour palette',
   Anime:
     'anime style, cel shaded, vibrant colors, dynamic composition, studio Ghibli inspired',
   Watercolor:
@@ -62,6 +96,14 @@ export const STYLE_DESCRIPTIONS: Record<StylePreset, string> = {
     'epic fantasy illustration, magical glowing runes, towering castles, mythic creatures',
   Documentary:
     'documentary photography, natural lighting, candid, gritty realism, 35mm grain',
+  'Drone Footage':
+    'aerial photography, wide sweeping landscape, high altitude, drone shot, extreme wide angle',
+  Macro:
+    'macro photography, extreme close-up, sharp focus on tiny details, beautiful bokeh background',
+  Dynamic:
+    'highly dynamic action shot, motion blur, extreme perspective, intense energy, vibrant colors',
+  Photorealistic:
+    'hyper-realistic photography, 8k resolution, razor sharp, lifelike textures, natural lighting',
 };
 
 export type PipelineStage =

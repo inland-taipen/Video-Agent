@@ -26,11 +26,13 @@ const STAGES = [
 ];
 
 const STYLE_PRESETS: StylePreset[] = [
-  'Cinematic', 'Anime', 'Watercolor', 'Noir', 'Sci-Fi', 'Fantasy', 'Documentary',
+  'Storybook', 'Cinematic', 'Anime', 'Watercolor', 'Noir', 'Sci-Fi', 'Fantasy', 'Documentary',
+  'Drone Footage', 'Macro', 'Dynamic', 'Photorealistic'
 ];
 const STYLE_ICONS: Record<StylePreset, string> = {
-  Cinematic: '🎬', Anime: '✨', Watercolor: '🎨', Noir: '🌑',
+  Storybook: '📖', Cinematic: '🎬', Anime: '✨', Watercolor: '🎨', Noir: '🌑',
   'Sci-Fi': '🚀', Fantasy: '🧙', Documentary: '📷',
+  'Drone Footage': '🚁', Macro: '🔍', Dynamic: '⚡', Photorealistic: '📸'
 };
 
 export const VoiceUploadPanel: React.FC<Props> = ({ onUseStory }) => {
@@ -137,23 +139,7 @@ export const VoiceUploadPanel: React.FC<Props> = ({ onUseStory }) => {
       </div>
 
 
-      {/* Style picker */}
-      <div className="form-group">
-        <label className="form-label">🎨 Visual Style</label>
-        <div className="style-grid">
-          {STYLE_PRESETS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={`style-chip ${style === s ? 'style-chip--active' : ''}`}
-              onClick={() => setStyle(s)}
-            >
-              <span>{STYLE_ICONS[s]}</span>
-              <span>{s}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Visual style picker removed as per user request */}
 
       {/* Drop zone */}
       {phase !== 'processing' && (

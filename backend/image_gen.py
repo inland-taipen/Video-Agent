@@ -16,7 +16,7 @@ import threading
 import time
 import urllib.parse
 from pathlib import Path
-from typing import List
+from typing import List, Literal
 
 import requests
 
@@ -29,6 +29,8 @@ IMAGE_TIMEOUT = 120
 _poll_lock = threading.Lock()
 _last_pollination_request = 0.0
 
+GenerationMode = Literal["animated", "documentary"]
+
 
 def _rate_limit_pollinations(has_key: bool) -> None:
     global _last_pollination_request
@@ -40,17 +42,64 @@ def _rate_limit_pollinations(has_key: bool) -> None:
         _last_pollination_request = time.time()
 
 
+# ── Style guards ─────────────────────────────────────────────────────────────
+# Each guard is injected into EVERY image prompt regardless of provider.
+# This ensures visual consistency and content safety across the pipeline.
+
+_ANIMATED_PREFIX = os.getenv(
+    "IMAGE_STYLE_PREFIX",
+    "high quality anime, studio ghibli style, vibrant colors, beautifully drawn, family-friendly, ",
+)
+_ANIMATED_SUFFIX = os.getenv(
+    "IMAGE_STYLE_SUFFIX",
+    ", no text, no watermark, no gore, no weapons, no horror, safe for children",
+)
+
+_DOCUMENTARY_PREFIX = (
+    "photorealistic, professional nature photography, BBC Earth style, "
+    "National Geographic quality, ultra detailed, natural lighting, "
+)
+_DOCUMENTARY_SUFFIX = (
+    ", 8K, cinematic, no text, no watermark, no gore, no violence, "
+    "no horror, safe for all audiences, beautiful, educational"
+)
+
+_STORYBOOK_PREFIX = (
+    "children's storybook illustration, soft watercolor painting, Beatrix Potter style, "
+    "warm pastel colors, hand-painted, cozy and whimsical, gentle illustration, "
+)
+_STORYBOOK_SUFFIX = (
+    ", family-friendly, soft warm light, beautifully illustrated, "
+    "no text, no watermark, no violence, no horror, safe for all ages"
+)
+
+# Legacy alias kept for backwards compatibility (env override still works)
+STYLE_GUARD_PREFIX = _ANIMATED_PREFIX
+STYLE_GUARD_SUFFIX = _ANIMATED_SUFFIX
+
+
+def _guarded(prompt: str, mode: GenerationMode = "animated") -> str:
+    """Wrap prompt with mode-appropriate style tokens and safety filters."""
+    if mode == "documentary":
+        return f"{_DOCUMENTARY_PREFIX}{prompt}{_DOCUMENTARY_SUFFIX}"
+    if mode == "storybook":
+        return f"{_STORYBOOK_PREFIX}{prompt}{_STORYBOOK_SUFFIX}"
+    return f"{_ANIMATED_PREFIX}{prompt}{_ANIMATED_SUFFIX}"
+
+
 def _pollinations_urls(prompt: str, seed: int, width: int, height: int, api_key: str) -> List[str]:
     encoded = urllib.parse.quote(prompt, safe="")
     urls: List[str] = []
     if api_key:
         urls.append(
             f"https://gen.pollinations.ai/image/{encoded}"
-            f"?width={width}&height={height}&seed={seed}&nologo=true&key={api_key}"
+            f"?width={width}&height={height}&seed={seed}&nologo=true&safe=true&key={api_key}"
         )
+    # enhance=true removed: Pollinations' prompt rewriter drifts content off-style.
+    # safe=true enables their strict NSFW filter (returns an error instead of an image).
     urls.append(
         f"https://image.pollinations.ai/prompt/{encoded}"
-        f"?width={width}&height={height}&seed={seed}&nologo=true&enhance=true&model=flux"
+        f"?width={width}&height={height}&seed={seed}&nologo=true&safe=true&model=flux"
     )
     return urls
 
@@ -111,7 +160,23 @@ def _placeholder_bytes(seed: int, width: int, height: int) -> bytes:
         )
 
 
-def fetch_scene_image(prompt: str, seed: int, width: int = W, height: int = H) -> bytes:
+def fetch_scene_image(
+    prompt: str,
+    seed: int,
+    width: int = W,
+    height: int = H,
+    mode: GenerationMode = "animated",
+) -> bytes:
+    """Fetch or generate a scene image.
+
+    Args:
+        prompt: Raw image prompt from the Prompt Compiler.
+        seed:   Deterministic seed for reproducibility.
+        width:  Output width in pixels.
+        height: Output height in pixels.
+        mode:   'animated' (anime guard) or 'documentary' (photorealistic guard).
+    """
+    prompt = _guarded(prompt, mode)
     cache_key = hashlib.sha256(f"{prompt}|{seed}|{width}|{height}".encode()).hexdigest()[:20]
     cache_path = IMAGE_CACHE_DIR / f"{cache_key}.jpg"
     if cache_path.exists() and cache_path.stat().st_size > 500:
@@ -126,3 +191,4 @@ def fetch_scene_image(prompt: str, seed: int, width: int = W, height: int = H) -
 
     cache_path.write_bytes(data)
     return data
+
