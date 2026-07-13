@@ -378,6 +378,285 @@ async def flux_image_generate(req: FluxImageRequest):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Stable Horde Image Generation
+# 100% free, community GPU pool. No card needed.
+# Sign up at https://stablehorde.net — use STABLE_HORDE_API_KEY
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Best models per style — full list at https://stablehorde.net/models
+HORDE_MODELS = {
+    "anime":            ["Anime Pastel Dream", "Anything V5"],
+    "realistic_anime":  ["DreamShaper", "Anything V5"],
+    "cinematic":        ["DreamShaper", "Realistic Vision"],
+    "documentary":      ["Realistic Vision", "ICBINP"],
+    "fantasy":          ["DreamShaper", "Anything V5"],
+    "default":          ["DreamShaper"],
+}
+
+class HordeImageRequest(BaseModel):
+    prompt: str
+    seed: int = 42
+    aspect_ratio: str = "16:9"
+    style: str = "default"
+
+
+def _call_stable_horde(prompt: str, key: str, models: list, seed: int) -> bytes:
+    """Submit to Stable Horde and poll until done (max 120s). Returns image bytes."""
+    import requests as _req
+    import time as _time
+    import base64 as _b64
+
+    headers = {
+        "apikey": key,
+        "Content-Type": "application/json",
+        "Client-Agent": "story-visualizer:1.0",
+    }
+
+    # 1. Submit job
+    body = {
+        "prompt": prompt,
+        "params": {
+            "width": 1024,
+            "height": 576,
+            "steps": 25,
+            "sampler_name": "k_euler_a",
+            "n": 1,
+            "seed": str(seed),
+            "karras": True,
+            "cfg_scale": 7,
+        },
+        "models": models,
+        "nsfw": False,
+        "censor_nsfw": True,
+        "r2": True,
+    }
+    r = _req.post(
+        "https://stablehorde.net/api/v2/generate/async",
+        headers=headers, json=body, timeout=30,
+    )
+    if r.status_code not in (200, 202):
+        raise RuntimeError(f"Horde submit {r.status_code}: {r.text[:300]}")
+
+    job_id = r.json().get("id")
+    if not job_id:
+        raise RuntimeError("Horde returned no job ID")
+
+    print(f"  [Horde] Job {job_id} submitted, polling...")
+
+    # 2. Poll check endpoint until done (max 40 x 3s = 120s)
+    for attempt in range(40):
+        _time.sleep(3)
+        check = _req.get(
+            f"https://stablehorde.net/api/v2/generate/check/{job_id}",
+            headers=headers, timeout=10,
+        )
+        if check.status_code != 200:
+            raise RuntimeError(f"Horde check {check.status_code}")
+        info = check.json()
+        if info.get("faulted"):
+            raise RuntimeError("Horde job faulted")
+        if info.get("done"):
+            break
+        pos = info.get("queue_position", "?")
+        if attempt % 5 == 0:
+            print(f"  [Horde] Queue position: {pos}")
+    else:
+        raise RuntimeError("Horde timed out after 120s")
+
+    # 3. Fetch result
+    status = _req.get(
+        f"https://stablehorde.net/api/v2/generate/status/{job_id}",
+        headers=headers, timeout=15,
+    )
+    if status.status_code != 200:
+        raise RuntimeError(f"Horde status {status.status_code}")
+
+    generations = status.json().get("generations", [])
+    if not generations:
+        raise RuntimeError("Horde returned no generations")
+
+    gen = generations[0]
+    # r2=True means img is a URL, not base64
+    img_url = gen.get("img", "")
+    if img_url.startswith("http"):
+        img_r = _req.get(img_url, timeout=30)
+        img_r.raise_for_status()
+        return img_r.content
+    elif img_url:
+        return _b64.b64decode(img_url)
+    raise RuntimeError("Horde returned empty image")
+
+
+@app.post("/api/horde-image")
+async def horde_image_generate(req: HordeImageRequest):
+    """Generate via Stable Horde (free community GPU pool).
+    Routes to best model per style. Falls back to Gemini -> Pollinations.
+    """
+    if not req.prompt.strip():
+        raise HTTPException(400, "prompt is empty")
+
+    import base64
+
+    horde_key = os.getenv("STABLE_HORDE_API_KEY", "").strip()
+    models = HORDE_MODELS.get(req.style, HORDE_MODELS["default"])
+
+    if horde_key:
+        try:
+            raw = _call_stable_horde(req.prompt.strip(), horde_key, models, req.seed)
+            b64 = base64.b64encode(raw).decode()
+            mime = "image/png" if raw[:4] == b'\x89PNG' else "image/jpeg"
+            print(f"  [OK] Stable Horde image style={req.style} models={models}")
+            return JSONResponse({"dataUrl": f"data:{mime};base64,{b64}", "provider": f"horde/{req.style}"})
+        except Exception as exc:
+            print(f"  [WARN] Horde failed: {str(exc)[:120]}")
+    else:
+        print("  [INFO] No STABLE_HORDE_API_KEY — skipping Horde")
+
+    # Fallback: Gemini -> Pollinations
+    gemini_key = (os.getenv("GEMINI_IMAGE_KEY", "").strip() or os.getenv("GEMINI_API_KEY", "").strip())
+    if gemini_key:
+        try:
+            raw = _call_gemini_image(req.prompt.strip(), gemini_key, "gemini-2.5-flash-image")
+            b64 = base64.b64encode(raw).decode()
+            mime = "image/png" if raw[:4] == b'\x89PNG' else "image/jpeg"
+            return JSONResponse({"dataUrl": f"data:{mime};base64,{b64}", "provider": "gemini"})
+        except Exception as exc:
+            print(f"  [WARN] Gemini fallback: {str(exc)[:120]}")
+
+    try:
+        data = fetch_scene_image(req.prompt.strip(), req.seed, width=1024, height=576, mode="animated")
+        b64 = base64.b64encode(data).decode()
+        return JSONResponse({"dataUrl": f"data:image/jpeg;base64,{b64}", "provider": "fallback"})
+    except Exception as exc:
+        raise HTTPException(500, f"All image providers failed: {exc}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Leonardo AI Image Generation
+# 150 free images/day forever on free tier. Best for anime + cinematic styles.
+# Sign up at https://leonardo.ai -> User Settings -> API Access
+# ─────────────────────────────────────────────────────────────────────────────
+
+LEONARDO_MODELS = {
+    "anime":     "e71a1c2f-4f80-4800-934f-2c68979d8cc8",  # Leonardo Anime XL
+    "cinematic": "aa77f04e-3eec-4034-9c07-d0f619684628",  # Leonardo Kino XL
+    "default":   "de7d3faf-762f-48e0-b3b7-9d0ac3a3fcf3",  # Leonardo Phoenix 1.0
+    "flux":      "b2614463-296c-462a-9586-aafdb8f00e36",  # FLUX Dev (via Leonardo)
+}
+
+class LeonardoImageRequest(BaseModel):
+    prompt: str
+    seed: int = 42
+    aspect_ratio: str = "16:9"
+    style: str = "default"
+
+
+def _call_leonardo(prompt: str, key: str, model_id: str, seed: int) -> bytes:
+    """Call Leonardo AI REST API. Polls until complete (max 60s). Returns image bytes."""
+    import requests as _req
+    import time as _time
+
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "authorization": f"Bearer {key}",
+    }
+    body = {
+        "modelId": model_id,
+        "prompt": prompt,
+        "num_images": 1,
+        "width": 1024,
+        "height": 576,
+        "seed": seed,
+        "guidance_scale": 7,
+    }
+    r = _req.post(
+        "https://cloud.leonardo.ai/api/rest/v1/generations",
+        headers=headers, json=body, timeout=30,
+    )
+    if r.status_code != 200:
+        raise RuntimeError(f"Leonardo submit {r.status_code}: {r.text[:300]}")
+
+    gen_id = r.json()["sdGenerationJob"]["generationId"]
+
+    for _ in range(20):
+        _time.sleep(3)
+        poll = _req.get(
+            f"https://cloud.leonardo.ai/api/rest/v1/generations/{gen_id}",
+            headers=headers, timeout=15,
+        )
+        if poll.status_code != 200:
+            raise RuntimeError(f"Leonardo poll {poll.status_code}: {poll.text[:200]}")
+        gen = poll.json().get("generations_by_pk", {})
+        status = gen.get("status", "PENDING")
+        if status == "COMPLETE":
+            imgs = gen.get("generated_images", [])
+            if not imgs:
+                raise RuntimeError("Leonardo returned no images")
+            img_r = _req.get(imgs[0]["url"], timeout=30)
+            img_r.raise_for_status()
+            return img_r.content
+        elif status == "FAILED":
+            raise RuntimeError("Leonardo generation failed")
+
+    raise RuntimeError("Leonardo timed out after 60s")
+
+
+@app.post("/api/leonardo-image")
+async def leonardo_image_generate(req: LeonardoImageRequest):
+    """Generate via Leonardo AI (150 free/day). Routes anime to Anime XL,
+    cinematic to Kino XL, everything else to Phoenix 1.0.
+    Falls back: FLUX -> Gemini -> Pollinations.
+    """
+    if not req.prompt.strip():
+        raise HTTPException(400, "prompt is empty")
+
+    import base64
+
+    leo_key = os.getenv("LEONARDO_API_KEY", "").strip()
+    if leo_key:
+        model_id = LEONARDO_MODELS.get(req.style, LEONARDO_MODELS["default"])
+        try:
+            raw = _call_leonardo(req.prompt.strip(), leo_key, model_id, req.seed)
+            b64 = base64.b64encode(raw).decode()
+            mime = "image/png" if raw[:4] == b'\x89PNG' else "image/jpeg"
+            print(f"  [OK] Leonardo image style={req.style}")
+            return JSONResponse({"dataUrl": f"data:{mime};base64,{b64}", "provider": f"leonardo/{req.style}"})
+        except Exception as exc:
+            print(f"  [WARN] Leonardo failed: {str(exc)[:120]}")
+    else:
+        print("  [INFO] No LEONARDO_API_KEY — skipping Leonardo")
+
+    # Fallback chain: FLUX -> Gemini -> Pollinations
+    fal_key = os.getenv("FAL_API_KEY", "").strip()
+    if fal_key:
+        try:
+            raw = _call_flux(req.prompt.strip(), fal_key, "schnell", req.seed)
+            b64 = base64.b64encode(raw).decode()
+            mime = "image/png" if raw[:4] == b'\x89PNG' else "image/jpeg"
+            return JSONResponse({"dataUrl": f"data:{mime};base64,{b64}", "provider": "flux/schnell"})
+        except Exception as exc:
+            print(f"  [WARN] FLUX fallback: {str(exc)[:120]}")
+
+    gemini_key = (os.getenv("GEMINI_IMAGE_KEY", "").strip() or os.getenv("GEMINI_API_KEY", "").strip())
+    if gemini_key:
+        try:
+            raw = _call_gemini_image(req.prompt.strip(), gemini_key, "gemini-2.5-flash-image")
+            b64 = base64.b64encode(raw).decode()
+            mime = "image/png" if raw[:4] == b'\x89PNG' else "image/jpeg"
+            return JSONResponse({"dataUrl": f"data:{mime};base64,{b64}", "provider": "gemini"})
+        except Exception as exc:
+            print(f"  [WARN] Gemini fallback: {str(exc)[:120]}")
+
+    try:
+        data = fetch_scene_image(req.prompt.strip(), req.seed, width=1024, height=576, mode="animated")
+        b64 = base64.b64encode(data).decode()
+        return JSONResponse({"dataUrl": f"data:image/jpeg;base64,{b64}", "provider": "fallback"})
+    except Exception as exc:
+        raise HTTPException(500, f"All image providers failed: {exc}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Gemini Image Generation (documentary mode)
 # Cascades through available image models; falls back to HF/Pollinations.
 # ─────────────────────────────────────────────────────────────────────────────

@@ -15,10 +15,82 @@ import { Scene, StoryboardFrame, GenerationMode, StylePreset } from '../types';
 import { generateImageWithImagen } from './imagen';
 import { compileImagePrompt, StoryMemory } from './memory';
 
-// Styles best served by FLUX (most styles actually — it's the best model)
-const FLUX_STYLES: StylePreset[] = [
-  'Anime', 'Realistic Anime', 'Cinematic', 'Sci-Fi', 'Fantasy', 'Noir', 'Dynamic', 'Photorealistic',
-];
+// Style mappings for Stable Horde model selection
+const HORDE_ANIME_STYLES: StylePreset[] = ['Anime', 'Realistic Anime'];
+const HORDE_CINEMATIC_STYLES: StylePreset[] = ['Cinematic', 'Noir', 'Dynamic', 'Photorealistic'];
+const HORDE_STYLED: StylePreset[] = [...HORDE_ANIME_STYLES, ...HORDE_CINEMATIC_STYLES, 'Sci-Fi', 'Fantasy', 'Documentary'];
+
+// ── Stable Horde image client ──────────────────────────────────────────────
+
+/**
+ * Generate an image via Stable Horde (free community GPU pool).
+ * Backend handles model selection and polling. Returns a base64 data URL.
+ */
+async function generateImageWithHorde(
+  prompt: string,
+  seed: number,
+  style: StylePreset,
+): Promise<string> {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+
+  // Map StylePreset to Horde model category
+  let hordeStyle = 'default';
+  if (HORDE_ANIME_STYLES.includes(style)) hordeStyle = style === 'Realistic Anime' ? 'realistic_anime' : 'anime';
+  else if (HORDE_CINEMATIC_STYLES.includes(style)) hordeStyle = 'cinematic';
+  else if (style === 'Fantasy' || style === 'Sci-Fi') hordeStyle = 'fantasy';
+  else if (style === 'Documentary') hordeStyle = 'documentary';
+
+  const res = await fetch(`${backendUrl}/api/horde-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, seed, aspect_ratio: '16:9', style: hordeStyle }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Horde backend error ${res.status}: ${err.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  if (!data.dataUrl) throw new Error('Horde returned no image data');
+  return data.dataUrl;
+}
+
+// ── Leonardo AI image client (fallback) ──────────────────────────────────
+
+/**
+ * Generate a high-quality image via Leonardo AI through the backend proxy.
+ * The backend handles: Leonardo -> FLUX -> Gemini -> Pollinations waterfall.
+ * Returns a base64 data URL.
+ */
+async function generateImageWithLeonardo(
+  prompt: string,
+  seed: number,
+  style: StylePreset,
+): Promise<string> {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+
+  // Map StylePreset to Leonardo model category
+  let leonardoStyle = 'default';
+  if (LEONARDO_ANIME_STYLES.includes(style)) leonardoStyle = 'anime';
+  else if (LEONARDO_CINEMATIC_STYLES.includes(style)) leonardoStyle = 'cinematic';
+  else if (style === 'Sci-Fi' || style === 'Fantasy') leonardoStyle = 'flux';
+
+  const res = await fetch(`${backendUrl}/api/leonardo-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, seed, aspect_ratio: '16:9', style: leonardoStyle }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Leonardo backend error ${res.status}: ${err.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  if (!data.dataUrl) throw new Error('Leonardo returned no image data');
+  return data.dataUrl;
+}
 
 // ── FLUX image client (fal.ai) ───────────────────────────────────────────────
 
@@ -81,12 +153,10 @@ async function generateImageWithGemini(
 
 /**
  * Waterfall image generation:
- *   1. FLUX/dev via fal.ai (best quality, anime + realistic styles)
- *   2. Gemini image (photorealistic fallback, great for documentary)
- *   3. Pollinations/HF (free-tier last resort)
- *
- * FLUX_STYLES get FLUX first. Documentary gets Gemini first.
- * All failures gracefully fall through to the next provider.
+ *   1. Stable Horde (free, community GPU, Anime/DreamShaper/Realistic Vision models)
+ *   2. Leonardo AI (fallback if Horde unavailable)
+ *   3. Gemini image (photorealistic fallback)
+ *   4. Pollinations/HF (free-tier last resort)
  */
 async function generateImage(
   prompt: string,
@@ -95,13 +165,21 @@ async function generateImage(
   mode: GenerationMode,
   style?: StylePreset,
 ): Promise<string> {
-  const useFluxFirst = style && FLUX_STYLES.includes(style);
+  const effectiveStyle = style ?? 'default' as StylePreset;
 
-  if (useFluxFirst) {
+  // Primary: Stable Horde — free, no card, great anime quality
+  try {
+    return await generateImageWithHorde(prompt, seed, effectiveStyle);
+  } catch (err) {
+    console.warn('Horde failed, trying Leonardo:', err);
+  }
+
+  // Secondary: Leonardo AI (if key is set)
+  if (style && HORDE_STYLED.includes(style)) {
     try {
-      return await generateImageWithFlux(prompt, seed, 'dev');
+      return await generateImageWithLeonardo(prompt, seed, style);
     } catch (err) {
-      console.warn('FLUX failed, trying Gemini:', err);
+      console.warn('Leonardo failed, trying Gemini:', err);
     }
   }
 
