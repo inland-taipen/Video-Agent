@@ -12,7 +12,6 @@
 //   Falls back to Pollinations/HF automatically if Gemini image is unavailable.
 
 import { Scene, StoryboardFrame, GenerationMode, StylePreset } from '../types';
-import { generateImageWithImagen } from './imagen';
 import { compileImagePrompt, StoryMemory } from './memory';
 
 // Style mappings for image routing
@@ -179,7 +178,6 @@ async function generateImageWithGemini(
  */
 async function generateImage(
   prompt: string,
-  apiKey: string,
   seed: number,
   mode: GenerationMode,
   style?: StylePreset,
@@ -209,15 +207,14 @@ async function generateImage(
     }
   }
 
-  // Gemini — great for photorealistic / documentary
+  // 4. Gemini — photorealistic fallback
   try {
     return await generateImageWithGemini(prompt, seed, mode);
   } catch (err) {
-    console.warn('Gemini image failed, falling back to Pollinations/HF:', err);
+    console.warn('Gemini image failed:', err);
   }
 
-  // Last resort
-  return await generateImageWithImagen(prompt, apiKey, seed, mode);
+  throw new Error('All image providers failed (HF, Horde, Leonardo, Gemini). Check backend logs.');
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -225,7 +222,7 @@ async function generateImage(
 export async function runStoryboard(
   scenes: Scene[],
   globalSeed: number,
-  apiKey: string,
+  _apiKey: string,  // kept for signature compat; no longer used for images
   onImageReady: (index: number, frame: StoryboardFrame) => void,
   memory?: StoryMemory,
   mode: GenerationMode = 'animated',
@@ -244,7 +241,7 @@ export async function runStoryboard(
 
       let mediaUrl = '';
       try {
-        mediaUrl = await generateImage(prompt, apiKey, seed, mode, style);
+        mediaUrl = await generateImage(prompt, seed, mode, style);
       } catch (err) {
         console.warn(`Image generation failed for scene ${scene.scene_number}:`, err);
         mediaUrl = '';

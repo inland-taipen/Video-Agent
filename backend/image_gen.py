@@ -12,11 +12,9 @@ from __future__ import annotations
 import hashlib
 import io
 import os
-import threading
 import time
-import urllib.parse
 from pathlib import Path
-from typing import List, Literal
+from typing import Literal
 
 import requests
 
@@ -26,20 +24,6 @@ IMAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 W, H = 1024, 576
 IMAGE_TIMEOUT = 120
 
-_poll_lock = threading.Lock()
-_last_pollination_request = 0.0
-
-GenerationMode = Literal["animated", "documentary"]
-
-
-def _rate_limit_pollinations(has_key: bool) -> None:
-    global _last_pollination_request
-    min_interval = 4 if has_key else 16
-    with _poll_lock:
-        elapsed = time.time() - _last_pollination_request
-        if elapsed < min_interval:
-            time.sleep(min_interval - elapsed)
-        _last_pollination_request = time.time()
 
 
 # ── Style guards ─────────────────────────────────────────────────────────────
@@ -98,37 +82,6 @@ def _guarded(prompt: str, mode: GenerationMode = "animated") -> str:
     return f"{_ANIMATED_PREFIX}{prompt}{_ANIMATED_SUFFIX}"
 
 
-def _pollinations_urls(prompt: str, seed: int, width: int, height: int, api_key: str) -> List[str]:
-    encoded = urllib.parse.quote(prompt, safe="")
-    urls: List[str] = []
-    if api_key:
-        urls.append(
-            f"https://gen.pollinations.ai/image/{encoded}"
-            f"?width={width}&height={height}&seed={seed}&nologo=true&safe=true&key={api_key}"
-        )
-    # enhance=true removed: Pollinations' prompt rewriter drifts content off-style.
-    # safe=true enables their strict NSFW filter (returns an error instead of an image).
-    urls.append(
-        f"https://image.pollinations.ai/prompt/{encoded}"
-        f"?width={width}&height={height}&seed={seed}&nologo=true&safe=true&model=flux"
-    )
-    return urls
-
-
-def _try_pollinations(prompt: str, seed: int, width: int, height: int) -> bytes | None:
-    api_key = os.getenv("POLLINATIONS_API_KEY", "").strip()
-    for url in _pollinations_urls(prompt, seed, width, height, api_key):
-        _rate_limit_pollinations(bool(api_key))
-        try:
-            r = requests.get(url, timeout=IMAGE_TIMEOUT)
-            content_type = r.headers.get("content-type", "")
-            if r.status_code == 200 and content_type.startswith("image"):
-                return r.content
-            print(f"  [WARN] Pollinations {r.status_code}: {r.text[:200]}")
-        except Exception as exc:
-            print(f"  [WARN] Pollinations request failed: {exc}")
-    return None
-
 
 def _try_huggingface(prompt: str, width: int, height: int, model: str = "black-forest-labs/FLUX.1-schnell") -> bytes | None:
     token = os.getenv("HF_TOKEN", "").strip()
@@ -178,7 +131,7 @@ def fetch_scene_image(
     height: int = H,
     mode: GenerationMode = "animated",
 ) -> bytes:
-    """Fetch or generate a scene image.
+    """Fetch or generate a scene image via HuggingFace FLUX.1-schnell.
 
     Args:
         prompt: Raw image prompt from the Prompt Compiler.
@@ -193,11 +146,9 @@ def fetch_scene_image(
     if cache_path.exists() and cache_path.stat().st_size > 500:
         return cache_path.read_bytes()
 
-    data = _try_pollinations(prompt, seed, width, height)
+    data = _try_huggingface(prompt, width, height)
     if data is None:
-        data = _try_huggingface(prompt, width, height)
-    if data is None:
-        print(f"  [WARN] All image providers failed for seed {seed} — using placeholder")
+        print(f"  [WARN] HuggingFace failed for seed {seed} — using placeholder")
         data = _placeholder_bytes(seed, width, height)
 
     cache_path.write_bytes(data)
