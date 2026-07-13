@@ -20,6 +20,10 @@ const HORDE_ANIME_STYLES: StylePreset[] = ['Anime', 'Realistic Anime'];
 const HORDE_CINEMATIC_STYLES: StylePreset[] = ['Cinematic', 'Noir', 'Dynamic', 'Photorealistic'];
 const HORDE_STYLED: StylePreset[] = [...HORDE_ANIME_STYLES, ...HORDE_CINEMATIC_STYLES, 'Sci-Fi', 'Fantasy', 'Documentary'];
 
+// Style mappings for Leonardo AI fallback model selection
+const LEONARDO_ANIME_STYLES: StylePreset[] = ['Anime', 'Realistic Anime'];
+const LEONARDO_CINEMATIC_STYLES: StylePreset[] = ['Cinematic', 'Noir', 'Dynamic', 'Photorealistic'];
+
 // ── Stable Horde image client ──────────────────────────────────────────────
 
 /**
@@ -92,34 +96,6 @@ async function generateImageWithLeonardo(
   return data.dataUrl;
 }
 
-// ── FLUX image client (fal.ai) ───────────────────────────────────────────────
-
-/**
- * Generate a high-quality image via FLUX.1 through the backend proxy.
- * Returns a base64 data URL.
- */
-async function generateImageWithFlux(
-  prompt: string,
-  seed: number,
-  model: 'dev' | 'schnell' = 'dev',
-): Promise<string> {
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
-  const res = await fetch(`${backendUrl}/api/flux-image`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, seed, aspect_ratio: '16:9', model }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`FLUX backend error ${res.status}: ${err.slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  if (!data.dataUrl) throw new Error('FLUX returned no image data');
-  return data.dataUrl;
-}
-
 // ── Gemini image client ──────────────────────────────────────────────────────
 
 /**
@@ -165,7 +141,7 @@ async function generateImage(
   mode: GenerationMode,
   style?: StylePreset,
 ): Promise<string> {
-  const effectiveStyle = style ?? 'default' as StylePreset;
+  const effectiveStyle: StylePreset = style ?? 'Cinematic';
 
   // Primary: Stable Horde — free, no card, great anime quality
   try {
