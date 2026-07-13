@@ -490,7 +490,8 @@ def _call_stable_horde(prompt: str, key: str, models: list, seed: int) -> bytes:
 @app.post("/api/horde-image")
 async def horde_image_generate(req: HordeImageRequest):
     """Generate via Stable Horde (free community GPU pool).
-    Routes to best model per style. Falls back to Gemini -> Pollinations.
+    Returns 503 if no key is set or all providers fail — lets the
+    frontend waterfall continue to Leonardo / Gemini / Pollinations.
     """
     if not req.prompt.strip():
         raise HTTPException(400, "prompt is empty")
@@ -500,35 +501,21 @@ async def horde_image_generate(req: HordeImageRequest):
     horde_key = os.getenv("STABLE_HORDE_API_KEY", "").strip()
     models = HORDE_MODELS.get(req.style, HORDE_MODELS["default"])
 
-    if horde_key:
-        try:
-            raw = _call_stable_horde(req.prompt.strip(), horde_key, models, req.seed)
-            b64 = base64.b64encode(raw).decode()
-            mime = "image/png" if raw[:4] == b'\x89PNG' else "image/jpeg"
-            print(f"  [OK] Stable Horde image style={req.style} models={models}")
-            return JSONResponse({"dataUrl": f"data:{mime};base64,{b64}", "provider": f"horde/{req.style}"})
-        except Exception as exc:
-            print(f"  [WARN] Horde failed: {str(exc)[:120]}")
-    else:
-        print("  [INFO] No STABLE_HORDE_API_KEY — skipping Horde")
-
-    # Fallback: Gemini -> Pollinations
-    gemini_key = (os.getenv("GEMINI_IMAGE_KEY", "").strip() or os.getenv("GEMINI_API_KEY", "").strip())
-    if gemini_key:
-        try:
-            raw = _call_gemini_image(req.prompt.strip(), gemini_key, "gemini-2.5-flash-image")
-            b64 = base64.b64encode(raw).decode()
-            mime = "image/png" if raw[:4] == b'\x89PNG' else "image/jpeg"
-            return JSONResponse({"dataUrl": f"data:{mime};base64,{b64}", "provider": "gemini"})
-        except Exception as exc:
-            print(f"  [WARN] Gemini fallback: {str(exc)[:120]}")
+    if not horde_key:
+        # Signal to the frontend that Horde is not configured
+        raise HTTPException(503, "STABLE_HORDE_API_KEY not set")
 
     try:
-        data = fetch_scene_image(req.prompt.strip(), req.seed, width=1024, height=576, mode="animated")
-        b64 = base64.b64encode(data).decode()
-        return JSONResponse({"dataUrl": f"data:image/jpeg;base64,{b64}", "provider": "fallback"})
+        raw = _call_stable_horde(req.prompt.strip(), horde_key, models, req.seed)
+        b64 = base64.b64encode(raw).decode()
+        mime = "image/png" if raw[:4] == b'\x89PNG' else "image/jpeg"
+        print(f"  [OK] Stable Horde image style={req.style} models={models}")
+        return JSONResponse({"dataUrl": f"data:{mime};base64,{b64}", "provider": f"horde/{req.style}"})
     except Exception as exc:
-        raise HTTPException(500, f"All image providers failed: {exc}")
+        print(f"  [WARN] Horde failed: {str(exc)[:120]}")
+        # Return 503 so the frontend can fallback to Leonardo/Gemini
+        raise HTTPException(503, f"Horde generation failed: {str(exc)[:200]}")
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
