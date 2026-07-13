@@ -59,17 +59,14 @@ async function generateImage(
   seed: number,
   mode: GenerationMode,
 ): Promise<string> {
-  if (mode === 'documentary') {
-    try {
-      return await generateImageWithGemini(prompt, seed, mode);
-    } catch (err) {
-      console.warn(`Gemini image failed, falling back to Pollinations/HF:`, err);
-      // Graceful fallback — user still gets an image
-      return await generateImageWithImagen(prompt, apiKey, seed, mode);
-    }
+  try {
+    // Try high-quality Gemini Image generation first for ALL styles
+    return await generateImageWithGemini(prompt, seed, mode);
+  } catch (err) {
+    console.warn(`Gemini image failed or blocked, falling back to Pollinations/HF:`, err);
+    // Graceful fallback for safety filter blocks (violence/real people) or if key is missing
+    return await generateImageWithImagen(prompt, apiKey, seed, mode);
   }
-  // animated mode — existing pipeline unchanged
-  return await generateImageWithImagen(prompt, apiKey, seed, mode);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
