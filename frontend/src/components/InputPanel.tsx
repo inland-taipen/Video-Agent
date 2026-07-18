@@ -5,6 +5,8 @@ import { StylePreset, GenerationMode, MODE_CONFIG } from '../types';
 interface Props {
   onGenerate: (story: string, style: StylePreset, seed: number, mode: GenerationMode) => void;
   isGenerating: boolean;
+  useVeo?: boolean;
+  onVeoToggle?: (enabled: boolean) => void;
 }
 
 const STYLE_PRESETS: StylePreset[] = [
@@ -28,24 +30,30 @@ that sustain entire ecosystems, the abyss holds secrets that challenge our under
   storybook: `Little Maisie the rabbit discovers a tiny glowing door at the base of the
 old oak tree. When she knocks, a friendly bluebird invites her inside — where a whole
 village of woodland creatures have been waiting for someone just like her to share their warmth.`,
+  cinematic: `A weathered detective steps off a late-night train into a rain-slicked city.
+Neon signs bleed color across wet pavement. She has one lead, one night, and a case
+that everyone else gave up on. The city knows the answer — she just has to make it talk.`,
 };
 
 const PLACEHOLDER: Record<GenerationMode, string> = {
   animated: 'Write your anime story (up to ~500 words). The AI will break it into cinematic scenes…',
   documentary: 'Describe a topic for your documentary (e.g. "The deep oceans", "Ancient Rome", "Bees and pollination")…',
   storybook: 'Write a gentle tale for your storybook (e.g. "A little fox who finds a lost star and returns it to the sky")…',
+  cinematic: 'Write a dramatic story for your film (e.g. "A detective follows a cold case through rain-soaked streets")…',
 };
 
 const GENERATE_LABEL: Record<GenerationMode, string> = {
   animated: '🎌 Generate Animated Story',
   documentary: '🌍 Generate Documentary',
   storybook: '📚 Create Storybook',
+  cinematic: '🎞️ Shoot the Film',
 };
 
 const TEXTAREA_LABEL: Record<GenerationMode, string> = {
   animated: '📖 Your Story',
   documentary: '🌍 Topic',
   storybook: '🌸 Your Tale',
+  cinematic: '🎞️ Your Script',
 };
 
 // Mode card accent colors (used via CSS class)
@@ -53,9 +61,10 @@ const MODE_ACCENT: Record<GenerationMode, string> = {
   animated: 'mode-card--sakura',
   documentary: 'mode-card--sage',
   storybook: 'mode-card--lavender',
+  cinematic: 'mode-card--film',
 };
 
-export const InputPanel: React.FC<Props> = ({ onGenerate, isGenerating }) => {
+export const InputPanel: React.FC<Props> = ({ onGenerate, isGenerating, useVeo = false, onVeoToggle }) => {
   const [story, setStory] = useState('');
   const [style, setStyle] = useState<StylePreset>('Watercolor');
   const [seed, setSeed] = useState(42);
@@ -207,6 +216,38 @@ export const InputPanel: React.FC<Props> = ({ onGenerate, isGenerating }) => {
             GENERATE_LABEL[mode]
           )}
         </button>
+
+        {/* ── Veo Video Toggle ── */}
+        <div className={`veo-toggle-card ${useVeo ? 'veo-toggle-card--on' : ''}`}>
+          <div className="veo-toggle-card__header">
+            <div className="veo-toggle-card__left">
+              <span className="veo-toggle-card__icon">🎬</span>
+              <div>
+                <div className="veo-toggle-card__title">Veo 3 Video</div>
+                <div className="veo-toggle-card__sub">
+                  {useVeo
+                    ? '⚠️ ~₹42/scene · 10s clips · sequential generation'
+                    : 'Generate 10s AI video clips per scene'}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              id="veo-toggle-btn"
+              className={`veo-switch ${useVeo ? 'veo-switch--on' : ''}`}
+              onClick={() => onVeoToggle?.(!useVeo)}
+              aria-pressed={useVeo}
+              title={useVeo ? 'Disable Veo video generation' : 'Enable Veo video generation'}
+            >
+              <span className="veo-switch__thumb" />
+            </button>
+          </div>
+          {useVeo && (
+            <div className="veo-toggle-card__warning">
+              💡 Images are generated first as fallback. Veo adds ~3–5 min per story.
+            </div>
+          )}
+        </div>
       </form>
     </div>
   );

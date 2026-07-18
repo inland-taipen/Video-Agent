@@ -22,6 +22,7 @@ export default function App() {
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
   const [error, setError] = useState('');
   const [inputMode, setInputMode] = useState<InputMode>('write');
+  const [useVeo, setUseVeo] = useState(false);
   // LLM calls are proxied through the backend (/api/llm); no key needed here.
   const [geminiKey] = useState<string>('backend-proxied');
 
@@ -50,6 +51,7 @@ export default function App() {
           style: st,
           seed,
           mode,
+          useVeo,
           onProgress: (state) => setPipelineState(state),
           onFrameLoaded: (i) => {
             setLoadedImages((prev) => {
@@ -68,7 +70,7 @@ export default function App() {
         setIsGenerating(false);
       }
     },
-    [],
+    [useVeo],
   );
 
   const handleVoiceStory = useCallback(
@@ -93,10 +95,11 @@ export default function App() {
             </div>
           </div>
           <div className="header-badges">
-            <span className="badge">Gemini (2.5 Flash)</span>
-            <span className="badge">FLUX.1-schnell</span>
+            <span className="badge">Gemini Image</span>
+            <span className="badge">Veo 3</span>
             <span className="badge">FFmpeg</span>
             <span className="badge badge--new">🎙️ Voice</span>
+            {useVeo && <span className="badge badge--veo">🎬 Veo ON</span>}
           </div>
         </div>
       </header>
@@ -124,7 +127,12 @@ export default function App() {
 
           {/* ── Write mode ── */}
           {inputMode === 'write' && (
-            <InputPanel onGenerate={handleGenerate} isGenerating={isGenerating} />
+            <InputPanel
+              onGenerate={handleGenerate}
+              isGenerating={isGenerating}
+              useVeo={useVeo}
+              onVeoToggle={setUseVeo}
+            />
           )}
 
           {/* ── Voice mode ── */}

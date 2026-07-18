@@ -98,18 +98,32 @@ export function extractMemory(
 
 const MODE_QUALITY_SUFFIX: Record<GenerationMode, string[]> = {
   animated: [
-    'anime', '2D illustration', 'masterpiece', 'highly detailed',
-    'cinematic', 'vibrant colors', 'dramatic lighting', 'expressive characters',
+    'anime illustration', 'Studio Ghibli style', '2D cel-shaded art',
+    'vibrant saturated colors', 'expressive anime characters', 'masterpiece anime artwork',
+    'dramatic anime lighting', 'NOT a photograph', 'NOT photorealistic',
   ],
   documentary: [
-    'professional wildlife photography', 'National Geographic', 'BBC Earth',
-    'photorealistic', 'natural lighting', '8K', 'cinematic documentary',
-    'high detail', 'beautiful composition', 'safe educational imagery',
+    // Hard photorealism guard — Gemini needs explicit negative instructions
+    'RAW photograph', 'DSLR photo', 'photorealistic', 'shot on Canon EOS R5',
+    'National Geographic photograph', 'BBC Earth documentary still',
+    'natural outdoor lighting', 'ultra sharp focus', '8K resolution',
+    'real life', 'NOT an illustration', 'NOT a drawing', 'NOT animated',
+    'NOT a painting', 'NOT cartoon', 'NOT digital art', 'no artistic style',
+    'hyper realistic', 'true to life colors',
   ],
   storybook: [
-    "children's book illustration", 'soft watercolor', 'Beatrix Potter style',
-    'warm pastel colors', 'hand-painted', 'cozy and whimsical', 'gentle storybook',
-    'family-friendly', 'soft warm light', 'beautifully illustrated',
+    "children's picture book illustration", 'soft watercolor painting',
+    'Beatrix Potter illustration style', 'warm pastel palette',
+    'hand-painted brushstrokes visible', 'cozy whimsical storybook art',
+    'gentle rounded shapes', 'illustrated NOT photographic',
+    'soft diffused light', 'family-friendly',
+  ],
+  cinematic: [
+    'analog 35mm film photograph', 'Kodak film grain',
+    'chiaroscuro high-contrast lighting', 'shallow depth of field f/1.4',
+    'moody noir atmosphere', 'photorealistic cinematic still',
+    'desaturated film color grade', 'anamorphic lens bokeh',
+    'NOT animated', 'NOT illustrated', 'NOT digital art',
   ],
 };
 

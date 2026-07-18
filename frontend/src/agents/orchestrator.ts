@@ -13,6 +13,7 @@
 import { runScriptwriter } from './scriptwriter';
 import { runVisualDirector } from './visualDirector';
 import { runStoryboard, preloadImages } from './storyboard';
+import { runVeo } from './veo';
 import { extractMemory, StoryMemory } from './memory';
 import { validateStory, autoFixScenes, buildPatchPrompt } from './validator';
 import { callLLM } from './llm';
@@ -23,13 +24,14 @@ export interface OrchestratorOptions {
   apiKey: string;
   style: StylePreset;
   seed: number;
-  mode: GenerationMode;        // 'animated' | 'documentary'
+  mode: GenerationMode;        // 'animated' | 'documentary' | etc.
+  useVeo?: boolean;            // optional: generate 10s video clips with Veo
   onProgress: (state: PipelineState) => void;
   onFrameLoaded: (index: number) => void;
 }
 
 export async function runPipeline(opts: OrchestratorOptions): Promise<StoryboardFrame[]> {
-  const { story, apiKey, style, seed, mode, onProgress, onFrameLoaded } = opts;
+  const { story, apiKey, style, seed, mode, useVeo, onProgress, onFrameLoaded } = opts;
 
   const modeIcon = mode === 'documentary' ? '🌍' : '🎌';
 
@@ -123,6 +125,28 @@ export async function runPipeline(opts: OrchestratorOptions): Promise<Storyboard
 
   // preloadImages is a no-op since images are base64 data URLs
   await preloadImages(frames, () => {});
+
+  // ── Stage 5 (Optional): Veo Video Generation ─────────────────────────────
+  if (useVeo) {
+    onProgress({ stage: 'storyboard', message: '🎬 Starting Veo video generation…', progress: 98 });
+    try {
+      const { frames: veoFrames, failedScenes } = await runVeo(
+        frames,
+        (message, _pct) => {
+          onProgress({ stage: 'storyboard', message, progress: 98 });
+        },
+      );
+      if (failedScenes.length > 0) {
+        console.warn('[Veo] Scenes using image fallback:', failedScenes);
+      }
+      onProgress({ stage: 'done', message: `✨ ${veoFrames.length} scenes ready with Veo video!`, progress: 100 });
+      return veoFrames;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('[Veo] Stage failed entirely — returning images:', msg);
+      onProgress({ stage: 'done', message: `⚠️ Veo failed, showing images instead. ${frames.length} scenes ready.`, progress: 100 });
+    }
+  }
 
   onProgress({ stage: 'done', message: `✨ ${frames.length} scenes ready!`, progress: 100 });
 

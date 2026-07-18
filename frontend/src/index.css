@@ -17,6 +17,7 @@
   --grad-animated:    linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
   --grad-documentary: linear-gradient(135deg, #0d9488 0%, #2dd4bf 100%);
   --grad-storybook:   linear-gradient(135deg, #d97706 0%, #fbbf24 100%);
+  --grad-cinematic:   linear-gradient(135deg, #1a1a2e 0%, #4a4a6a 100%);
   --grad-primary:     linear-gradient(135deg, #4f46e5 0%, #0d9488 100%);
   --shadow-xs: 0 1px 3px rgba(0,0,0,0.06);
   --shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
@@ -176,6 +177,16 @@ h1,h2,h3,h4,h5,h6{font-family:'Outfit',sans-serif;letter-spacing:-.01em}
 .mode-card--sakura .mode-card__check{background:var(--grad-animated)}
 .mode-card--sage .mode-card__check{background:var(--grad-documentary)}
 .mode-card--lavender .mode-card__check{background:var(--grad-storybook)}
+.mode-card--film.mode-card--active{
+  border-color:#6b7280;
+  background:linear-gradient(135deg,#1a1a2e 0%,#2d2d44 100%);
+  box-shadow:0 0 0 3px rgba(107,114,128,.25),var(--shadow-sm);
+  color:white;
+}
+.mode-card--film.mode-card--active .mode-card__label{color:#e2e8f0}
+.mode-card--film.mode-card--active .mode-card__desc{color:#94a3b8}
+.mode-card--film:hover:not(.mode-card--active){border-color:#9ca3af}
+.mode-card--film .mode-card__check{background:var(--grad-cinematic);border:1px solid rgba(255,255,255,.2)}
 @keyframes checkPop{0%{transform:translateY(-50%) scale(0);opacity:0}100%{transform:translateY(-50%) scale(1);opacity:1}}
 
 /* Divider */
@@ -238,6 +249,8 @@ h1,h2,h3,h4,h5,h6{font-family:'Outfit',sans-serif;letter-spacing:-.01em}
 .btn-generate--documentary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 28px rgba(13,148,136,.45)}
 .btn-generate--storybook{background:var(--grad-storybook);box-shadow:0 4px 18px rgba(217,119,6,.35)}
 .btn-generate--storybook:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 28px rgba(217,119,6,.45)}
+.btn-generate--cinematic{background:var(--grad-cinematic);box-shadow:0 4px 18px rgba(26,26,46,.5)}
+.btn-generate--cinematic:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 28px rgba(26,26,46,.65)}
 .btn-generate:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
 .btn-spinner{display:flex;align-items:center;justify-content:center;gap:10px}
 .spinner{
@@ -458,3 +471,116 @@ h1,h2,h3,h4,h5,h6{font-family:'Outfit',sans-serif;letter-spacing:-.01em}
 *::-webkit-scrollbar-track{background:transparent}
 *::-webkit-scrollbar-thumb{background:var(--slate-300);border-radius:4px}
 *::-webkit-scrollbar-thumb:hover{background:var(--slate-400)}
+
+/* Scene Badges */
+.tis-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.scene-badge {
+  background: var(--slate-100);
+  color: var(--slate-600);
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Veo badge (header) ─────────────────────────────────────── */
+.badge--veo {
+  background: linear-gradient(135deg, #7c3aed22, #f59e0b22);
+  border: 1px solid #7c3aed55;
+  color: #7c3aed;
+  animation: veoBadgePulse 2s ease-in-out infinite;
+}
+@keyframes veoBadgePulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(124,58,237,0); }
+  50%      { box-shadow: 0 0 0 4px rgba(124,58,237,.15); }
+}
+
+/* ── Veo toggle card ─────────────────────────────────────────── */
+.veo-toggle-card {
+  margin-top: 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 12px 14px;
+  background: var(--bg-elevated);
+  transition: border-color .25s, background .25s, box-shadow .25s;
+}
+.veo-toggle-card--on {
+  border-color: #7c3aed88;
+  background: linear-gradient(135deg, rgba(124,58,237,.06), rgba(245,158,11,.04));
+  box-shadow: 0 0 0 3px rgba(124,58,237,.08);
+}
+.veo-toggle-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.veo-toggle-card__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.veo-toggle-card__icon {
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px rgba(124,58,237,.4));
+}
+.veo-toggle-card__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: .01em;
+}
+.veo-toggle-card__sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.veo-toggle-card__warning {
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: #7c3aed;
+  background: rgba(124,58,237,.07);
+  border-radius: var(--r-sm);
+  padding: 7px 10px;
+  line-height: 1.5;
+}
+
+/* ── Veo toggle switch ───────────────────────────────────────── */
+.veo-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  background: var(--slate-200);
+  transition: background .2s;
+  padding: 0;
+}
+.veo-switch--on {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+}
+.veo-switch__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+.veo-switch--on .veo-switch__thumb {
+  transform: translateX(20px);
+}

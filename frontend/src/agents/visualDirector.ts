@@ -134,9 +134,44 @@ Scenes:
 ${sceneList}`;
 }
 
+function buildCinematicPrompt(scenes: Scene[], style: StylePreset): string {
+  const sceneList = scenes
+    .map(
+      (s) =>
+        `Scene ${s.scene_number}:\n  Setting: ${s.setting}\n  Action: ${s.visual_description}\n  Narration: ${s.narration}`,
+    )
+    .join('\n\n');
+
+  return `You are a world-class cinematographer for a gritty analog-film feature — think Tarkovsky, Wong Kar-wai, and neo-noir.
+
+Global visual style: "${STYLE_DESCRIPTIONS[style]}"
+
+For each scene, design the complete cinematic treatment:
+- Shot type that maximizes visual tension (EXTREME CLOSE-UP for emotion, WIDE for isolation, LOW ANGLE for power)
+- Camera movement: deliberate and sparse — prefer STATIC, slow ZOOM IN, or heavy PAN
+- Duration: slow and considered (establishing shots 5-7s, intimate scenes 4-6s, climax 6-8s)
+- Lighting: chiaroscuro — deep shadows, isolated pools of light, neon reflections on rain, candlelight, harsh street lamps
+- Atmosphere keywords: desolate, tense, melancholic, haunting, brooding, intimate
+- Color palette: muted and film-grain — desaturated greens and blues, amber highlights, silver moonlight, deep blacks
+- Composition: high contrast, rule of thirds broken for unease, subjects silhouetted or half-lit
+- A concise cinematic_style consistent across ALL scenes that captures the analog film grain and noir mood
+
+Return ONLY a valid JSON array (no markdown, no prose) where each element matches:
+${ENRICHED_SCHEMA}
+
+Rules:
+- cinematic_style MUST be identical across all scenes.
+- lighting should be low-key: darkness dominates, light is the exception.
+- atmosphere should feel real, heavy, and human.
+
+Scenes:
+${sceneList}`;
+}
+
 function buildPrompt(scenes: Scene[], style: StylePreset, mode: GenerationMode): string {
   if (mode === 'documentary') return buildDocumentaryPrompt(scenes, style);
   if (mode === 'storybook') return buildStorybookPrompt(scenes, style);
+  if (mode === 'cinematic') return buildCinematicPrompt(scenes, style);
   return buildAnimatedPrompt(scenes, style);
 }
 

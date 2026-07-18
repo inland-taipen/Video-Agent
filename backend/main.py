@@ -55,6 +55,13 @@ EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 TTS_DIR = Path(os.getenv("TTS_DIR", "outputs/tts"))
 TTS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Serve built frontend when deployed via Docker
+# The Dockerfile copies frontend/dist → /app/frontend_dist/
+_FRONTEND_DIST = Path(__file__).parent.parent / "frontend_dist"
+if _FRONTEND_DIST.exists():
+    from fastapi.staticfiles import StaticFiles as _StaticFiles
+    app.mount("/", _StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="frontend")
+
 # In-memory job store (fine for single-process server)
 _jobs: Dict[str, ExportStatus] = {}
 _job_lock = threading.Lock()
@@ -66,14 +73,24 @@ _job_lock = threading.Lock()
 
 @app.get("/api/health")
 async def health():
+    gemini_key = (
+        os.getenv("GEMINI_IMAGE_KEY", "").strip()
+        or os.getenv("GEMINI_API_KEY", "").strip()
+    )
     return {
         "ok": True,
         "ffmpeg": FFMPEG_BIN,
         "image_providers": {
-            "gemini_image_key": bool(os.getenv("GEMINI_IMAGE_KEY", "").strip()),
+            "gemini_image": bool(gemini_key),
+            "gemini_image_model": os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image"),
             "gemini_api_key": bool(os.getenv("GEMINI_API_KEY", "").strip()),
             "pollinations_key": bool(os.getenv("POLLINATIONS_API_KEY", "").strip()),
             "hf_token": bool(os.getenv("HF_TOKEN", "").strip()),
+            "bfl_key": bool(os.getenv("BFL_API_KEY", "").strip()),
+        },
+        "video_providers": {
+            "veo": bool(gemini_key),
+            "veo_model": os.getenv("VEO_MODEL", "veo-3.0-generate-preview"),
         },
     }
 
@@ -116,10 +133,6 @@ def _call_groq(prompt: str, json_mode: bool, key: str):
         "temperature": 0.2,
         "top_p": 0.95,
     }
-    # Note: Groq's json_object mode forces a top-level OBJECT, but the
-    # scriptwriter expects a top-level ARRAY — so we rely on the prompt's
-    # "return only JSON" instruction instead. The frontend parser already
-    # strips code fences and extracts the first array.
     _ = json_mode
     r = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
@@ -132,42 +145,83 @@ def _call_groq(prompt: str, json_mode: bool, key: str):
     return r.json()["choices"][0]["message"]["content"]
 
 
+def _call_aicredits(prompt: str, key: str):
+    """Call AICredits OpenAI-compatible gateway (api.aicredits.in).
+
+    Supports GPT-4o, Claude, Gemini, and 300+ models via UPI-paid credits.
+    Uses gemini-2.5-flash by default (fast + cheap).
+    """
+    import requests
+    model = os.getenv("AICREDITS_MODEL", "gemini-2.5-flash")
+    r = requests.post(
+        "https://api.aicredits.in/v1/chat/completions",
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.2,
+            "top_p": 0.95,
+        },
+        timeout=120,
+    )
+    if r.status_code != 200:
+        raise RuntimeError(f"AICredits {r.status_code}: {r.text[:300]}")
+    return r.json()["choices"][0]["message"]["content"]
+
+
 @app.post("/api/llm")
 def llm_proxy(req: LLMRequest):
-    """Proxy to Gemini (native endpoint), falling back to Groq.
+    """LLM proxy waterfall: AICredits → Groq → Gemini.
 
-    Google's new 'AQ.'-prefix keys fail on OpenAI-compatible endpoints,
-    so Gemini is called natively via generateContent. If Gemini errors
-    (e.g. 401 on a restricted key), we retry with Groq's Llama model
-    using GROQ_API_KEY. No key-format validation anywhere — the API is
-    the source of truth.
+    1. AICredits (aicredits.in) — OpenAI-compatible, UPI payments in ₹
+    2. Groq (Llama 3.3 70B) — fast free fallback
+    3. Gemini (native endpoint) — Google fallback
     """
-    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    aicredits_key = os.getenv("AICREDITS_API_KEY", "").strip()
     groq_key = os.getenv("GROQ_API_KEY", "").strip() or os.getenv("VITE_GROQ_API_KEY", "").strip()
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
 
     errors = []
+
+    # 1. AICredits — primary (OpenAI-compatible, INR billing)
+    if aicredits_key:
+        try:
+            text = _call_aicredits(req.prompt, aicredits_key)
+            if text:
+                print(f"  [OK] AICredits served LLM request")
+                return {"text": text, "provider": "aicredits"}
+            errors.append("AICredits returned empty text")
+        except Exception as exc:
+            errors.append(str(exc))
+            print(f"  [WARN] AICredits failed: {exc}")
+    else:
+        errors.append("AICREDITS_API_KEY not set")
+
+    # 2. Groq — free fast fallback
+    if groq_key:
+        try:
+            text = _call_groq(req.prompt, req.json_mode, groq_key)
+            if text:
+                print(f"  [WARN] Using Groq fallback")
+                return {"text": text, "provider": "groq"}
+            errors.append("Groq returned empty text")
+        except Exception as exc:
+            errors.append(str(exc))
+    else:
+        errors.append("GROQ_API_KEY not set")
+
+    # 3. Gemini — last resort
     if gemini_key:
         try:
             text = _call_gemini(req.prompt, req.model, req.json_mode, gemini_key)
             if text:
+                print(f"  [WARN] Using Gemini fallback")
                 return {"text": text, "provider": "gemini"}
             errors.append("Gemini returned empty text")
         except Exception as exc:
             errors.append(str(exc))
     else:
         errors.append("GEMINI_API_KEY not set")
-
-    if groq_key:
-        try:
-            text = _call_groq(req.prompt, req.json_mode, groq_key)
-            if text:
-                print(f"  [WARN] Gemini failed ({errors[-1][:120]}) — served by Groq fallback")
-                return {"text": text, "provider": "groq"}
-            errors.append("Groq returned empty text")
-        except Exception as exc:
-            errors.append(str(exc))
-    else:
-        errors.append("GROQ_API_KEY not set (no fallback available)")
 
     raise HTTPException(502, "All LLM providers failed: " + " | ".join(e[:200] for e in errors))
 
@@ -700,7 +754,38 @@ GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
 GEMINI_IMAGE_MODEL_CASCADE = [
     GEMINI_IMAGE_MODEL,
     "gemini-2.5-flash-image",
+    "gemini-2.0-flash-preview-image-generation",  # legacy fallback
 ]
+
+
+# Mode-specific prompt prefixes for Gemini image generation.
+# These are prepended to every prompt to steer the model's default style.
+# Documentary uses aggressive photorealism guards because Gemini's image
+# models default to illustrated/artistic styles without explicit instruction.
+GEMINI_IMAGE_MODE_PREFIX: dict[str, str] = {
+    "documentary": (
+        "REAL PHOTOGRAPH ONLY. This must be a hyper-realistic, photographic image. "
+        "Shoot as if taken by a professional nature or documentary photographer with a "
+        "DSLR camera. National Geographic quality, BBC Earth style. "
+        "NO illustration, NO painting, NO drawing, NO animation, NO cartoon, "
+        "NO digital art, NO artistic style whatsoever. Pure photography. "
+    ),
+    "cinematic": (
+        "Analog 35mm film photograph, cinematic still frame. "
+        "High-contrast chiaroscuro lighting, photorealistic, film grain, "
+        "moody noir atmosphere. NO illustration, NO animation, NO cartoon. "
+    ),
+    "animated": (
+        "Anime illustration, Studio Ghibli style, 2D cel-shaded art. "
+        "Vibrant colors, expressive characters, masterpiece anime artwork. "
+        "NOT a photograph, NOT photorealistic. Pure anime illustration style. "
+    ),
+    "storybook": (
+        "Children's picture book illustration. Soft watercolor painting, "
+        "Beatrix Potter style, warm pastel colors, hand-painted look. "
+        "Cozy and whimsical. NOT a photograph, NOT photorealistic. Pure illustration. "
+    ),
+}
 
 
 def _call_gemini_image(prompt: str, key: str, model: str) -> bytes:
@@ -740,7 +825,13 @@ def _call_gemini_image(prompt: str, key: str, model: str) -> bytes:
 
 @app.post("/api/gemini-image")
 async def gemini_image_generate(req: GeminiImageRequest):
-    """Generate a photorealistic image via Gemini's image model (documentary mode).
+    """Generate an image via Gemini's image model.
+
+    Applies a mode-specific prompt prefix to enforce style:
+    - documentary → hard photorealism guard (NO illustration)
+    - cinematic   → analog film photography
+    - animated    → anime/Studio Ghibli illustration
+    - storybook   → watercolor children's book illustration
 
     Key resolution: GEMINI_IMAGE_KEY preferred; falls back to GEMINI_API_KEY.
     Model cascade: tries GEMINI_IMAGE_MODEL_CASCADE in order.
@@ -756,13 +847,18 @@ async def gemini_image_generate(req: GeminiImageRequest):
         or os.getenv("GEMINI_API_KEY", "").strip()
     )
 
+    # Prepend mode-specific style prefix to steer Gemini's output
+    mode_prefix = GEMINI_IMAGE_MODE_PREFIX.get(req.mode, "")
+    final_prompt = f"{mode_prefix}{req.prompt.strip()}"
+    print(f"  [Gemini Image] mode={req.mode} prompt_preview={final_prompt[:120]}...")
+
     if gemini_key:
         for model in GEMINI_IMAGE_MODEL_CASCADE:
             try:
-                raw = _call_gemini_image(req.prompt.strip(), gemini_key, model)
+                raw = _call_gemini_image(final_prompt, gemini_key, model)
                 b64 = base64.b64encode(raw).decode()
                 mime = "image/png" if raw[:4] == b'\x89PNG' else "image/jpeg"
-                print(f"  [OK] Gemini image via {model}")
+                print(f"  [OK] Gemini image via {model} (mode={req.mode})")
                 return JSONResponse({"dataUrl": f"data:{mime};base64,{b64}", "provider": f"gemini/{model}"})
             except Exception as exc:
                 msg = str(exc)
@@ -777,7 +873,7 @@ async def gemini_image_generate(req: GeminiImageRequest):
                 else:
                     print(f"  [WARN] {model}: {msg[:120]}")
     else:
-        print("  [INFO] No Gemini key — using HF/Pollinations for documentary images")
+        print("  [INFO] No Gemini key — using HF/Pollinations for images")
 
     # Final fallback
     try:
@@ -786,6 +882,164 @@ async def gemini_image_generate(req: GeminiImageRequest):
         return JSONResponse({"dataUrl": f"data:image/jpeg;base64,{b64}", "provider": "fallback"})
     except Exception as exc:
         raise HTTPException(500, f"All image providers failed: {exc}")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Veo Video Generation
+# Uses the same GEMINI_API_KEY / GEMINI_IMAGE_KEY from env.
+# Generates 10-second (default) video clips via Gemini's Veo 3 model.
+# ─────────────────────────────────────────────────────────────────────────────
+
+VEO_MODEL_DEFAULT = os.getenv("VEO_MODEL", "veo-3.0-generate-preview")
+VEO_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+
+class VeoRequest(BaseModel):
+    prompt: str
+    duration_seconds: int = 10   # 5–10 seconds supported
+    aspect_ratio: str = "16:9"   # "16:9" or "9:16"
+
+
+def _submit_veo_job(prompt: str, key: str, model: str, duration: int, aspect: str) -> str:
+    """Submit a Veo generation job. Returns the operation name."""
+    import requests as _req
+
+    # Clamp duration to supported range
+    duration = max(5, min(duration, 10))
+
+    url = f"{VEO_BASE_URL}/models/{model}:predictLongRunning"
+    body = {
+        "instances": [{
+            "prompt": prompt,
+        }],
+        "parameters": {
+            "durationSeconds": duration,
+            "aspectRatio": aspect,
+            "sampleCount": 1,
+        },
+    }
+
+    r = _req.post(
+        url,
+        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+        json=body,
+        timeout=30,
+    )
+    if r.status_code != 200:
+        raise RuntimeError(f"Veo submit {r.status_code}: {r.text[:400]}")
+
+    data = r.json()
+    op_name = data.get("name")
+    if not op_name:
+        raise RuntimeError(f"Veo: no operation name in response: {data}")
+    return op_name
+
+
+def _poll_veo_job(op_name: str, key: str, timeout_s: int = 360) -> bytes:
+    """Poll Veo operation until done. Returns raw video bytes."""
+    import requests as _req
+    import base64 as _b64
+    import time as _time
+
+    url = f"{VEO_BASE_URL}/{op_name}"
+    deadline = _time.time() + timeout_s
+    poll_interval = 15  # seconds between polls
+
+    while _time.time() < deadline:
+        _time.sleep(poll_interval)
+        r = _req.get(
+            url,
+            headers={"x-goog-api-key": key},
+            timeout=30,
+        )
+        if r.status_code != 200:
+            raise RuntimeError(f"Veo poll {r.status_code}: {r.text[:300]}")
+
+        data = r.json()
+        done = data.get("done", False)
+        print(f"  [Veo] Polling {op_name[-20:]}: done={done}")
+
+        if done:
+            # Extract video bytes from response
+            response = data.get("response", {})
+            generated = response.get("generatedSamples") or response.get("generated_videos", [])
+
+            # Try generatedSamples path (Vertex-style)
+            if generated:
+                sample = generated[0]
+                video = sample.get("video", sample.get("videoUri", sample))
+                if isinstance(video, dict):
+                    b64 = video.get("bytesBase64Encoded", "")
+                    if b64:
+                        return _b64.b64decode(b64)
+                    uri = video.get("uri", "")
+                    if uri.startswith("http"):
+                        vr = _req.get(uri, timeout=60)
+                        vr.raise_for_status()
+                        return vr.content
+                elif isinstance(video, str):
+                    if video.startswith("http"):
+                        vr = _req.get(video, timeout=60)
+                        vr.raise_for_status()
+                        return vr.content
+                    # Possibly base64
+                    try:
+                        return _b64.b64decode(video)
+                    except Exception:
+                        pass
+
+            # Fallback: try direct bytes in response
+            if "videoBytes" in response:
+                return _b64.b64decode(response["videoBytes"])
+
+            raise RuntimeError(f"Veo done but no video data found: {str(data)[:400]}")
+
+        # Check for error state
+        error = data.get("error")
+        if error:
+            raise RuntimeError(f"Veo job failed: {error.get('message', str(error))}")
+
+    raise RuntimeError(f"Veo timed out after {timeout_s}s")
+
+
+@app.post("/api/veo")
+async def veo_generate(req: VeoRequest):
+    """Generate a short video clip via Google Veo 3.
+
+    Uses GEMINI_IMAGE_KEY preferred, falls back to GEMINI_API_KEY.
+    Returns {dataUrl, provider, durationSeconds} on success.
+    Returns 503 if no key is set.
+    """
+    if not req.prompt.strip():
+        raise HTTPException(400, "prompt is empty")
+
+    gemini_key = (
+        os.getenv("GEMINI_IMAGE_KEY", "").strip()
+        or os.getenv("GEMINI_API_KEY", "").strip()
+    )
+    if not gemini_key:
+        raise HTTPException(503, "No Gemini API key set (GEMINI_API_KEY or GEMINI_IMAGE_KEY required for Veo)")
+
+    model = os.getenv("VEO_MODEL", VEO_MODEL_DEFAULT)
+    duration = max(5, min(req.duration_seconds, 10))
+
+    print(f"  [Veo] Generating {duration}s video: {req.prompt[:80]}...")
+
+    import base64
+    try:
+        op_name = _submit_veo_job(req.prompt.strip(), gemini_key, model, duration, req.aspect_ratio)
+        print(f"  [Veo] Operation: {op_name}")
+        video_bytes = _poll_veo_job(op_name, gemini_key)
+        b64 = base64.b64encode(video_bytes).decode()
+        print(f"  [OK] Veo video generated ({len(video_bytes)} bytes)")
+        return JSONResponse({
+            "dataUrl": f"data:video/mp4;base64,{b64}",
+            "provider": f"veo/{model}",
+            "durationSeconds": duration,
+        })
+    except Exception as exc:
+        msg = str(exc)
+        print(f"  [ERROR] Veo failed: {msg}")
+        raise HTTPException(500, f"Veo generation failed: {msg[:400]}")
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TTS endpoint — synthesise one scene's narration

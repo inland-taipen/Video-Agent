@@ -170,11 +170,8 @@ async function generateImageWithGemini(
 
 /**
  * Waterfall image generation:
- *   1. HuggingFace FLUX.1-schnell (FREE, HF_TOKEN already set — no new keys needed)
- *   2. Stable Horde (community GPU, STABLE_HORDE_API_KEY)
- *   3. Leonardo AI (LEONARDO_API_KEY)
- *   4. Gemini image
- *   5. Pollinations/HF (absolute last resort)
+ *   1. Gemini image (PRIMARY — uses GEMINI_API_KEY, high quality)
+ *   2. Backend /api/imagen → BFL FLUX → Pollinations (free fallbacks)
  */
 async function generateImage(
   prompt: string,
@@ -182,39 +179,31 @@ async function generateImage(
   mode: GenerationMode,
   style?: StylePreset,
 ): Promise<string> {
-  const effectiveStyle: StylePreset = style ?? 'Cinematic';
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
 
-  // 1. HuggingFace FLUX — already configured, completely free
-  try {
-    return await generateImageWithHF(prompt, seed, effectiveStyle);
-  } catch (err) {
-    console.warn('HF FLUX failed, trying Horde:', err);
-  }
-
-  // 2. Stable Horde — free community GPUs
-  try {
-    return await generateImageWithHorde(prompt, seed, effectiveStyle);
-  } catch (err) {
-    console.warn('Horde failed, trying Leonardo:', err);
-  }
-
-  // 3. Leonardo AI (if key is set)
-  if (style && HORDE_STYLED.includes(style)) {
-    try {
-      return await generateImageWithLeonardo(prompt, seed, style);
-    } catch (err) {
-      console.warn('Leonardo failed, trying Gemini:', err);
-    }
-  }
-
-  // 4. Gemini — photorealistic fallback
+  // 1. Gemini — PRIMARY: highest quality, uses your Gemini credits
   try {
     return await generateImageWithGemini(prompt, seed, mode);
   } catch (err) {
-    console.warn('Gemini image failed:', err);
+    console.warn('Gemini image failed, falling back to BFL/Pollinations:', err);
   }
 
-  throw new Error('All image providers failed (HF, Horde, Leonardo, Gemini). Check backend logs.');
+  // 2. Backend /api/imagen — routes to BFL FLUX → Pollinations (free fallbacks)
+  try {
+    const res = await fetch(`${backendUrl}/api/imagen`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, seed, mode, style: style ?? 'Cinematic' }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.dataUrl) return data.dataUrl;
+    }
+  } catch (err) {
+    console.warn('Backend /api/imagen failed:', err);
+  }
+
+  throw new Error('All image providers failed. Check backend logs and API key.');
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

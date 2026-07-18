@@ -44,7 +44,7 @@ const SCHEMA = `
 function buildAnimatedPrompt(story: string, style: StylePreset): string {
   return `You are a master screenwriter crafting an emotionally engaging anime story.
 
-Create a 5-8 scene screenplay from the user's prompt. Each scene should advance the narrative and build emotional momentum.
+Create an exactly 4-scene screenplay from the user's story. Each scene should advance the narrative and build emotional momentum.
 
 Global art style: "${STYLE_DESCRIPTIONS[style]}"
 
@@ -71,7 +71,7 @@ ${story}
 function buildDocumentaryPrompt(story: string, style: StylePreset): string {
   return `You are a professional documentary screenwriter in the style of BBC Earth and National Geographic.
 
-Create a 5-8 scene educational documentary screenplay from the user's topic. Each scene should educate and inspire the viewer.
+Create an exactly 4-scene educational documentary screenplay from the user's topic. Each scene should educate and inspire the viewer.
 
 Global visual style: "${STYLE_DESCRIPTIONS[style]}"
 
@@ -98,7 +98,7 @@ ${story}
 function buildStorybookPrompt(story: string, style: StylePreset): string {
   return `You are a warm, gentle storyteller crafting a beautifully illustrated children's storybook.
 
-Create a 5-7 scene storybook from the user's story. Each scene should feel like a page from a treasured picture book — cozy, magical, and emotionally warm.
+Create an exactly 4-scene storybook from the user's story. Each scene should feel like a page from a treasured picture book — cozy, magical, and emotionally warm.
 
 Global art style: "${STYLE_DESCRIPTIONS[style]}"
 
@@ -122,9 +122,36 @@ ${story}
 """`;
 }
 
+function buildCinematicPrompt(story: string, style: StylePreset): string {
+  return `You are a world-class screenwriter crafting a gripping cinematic short film in the style of analog film photography — moody, atmospheric, and visually striking.
+
+Create an exactly 4-scene screenplay from the user's story. Each scene should feel like a frame from a powerful independent film: intimate, tension-filled, and visually arresting.
+
+Global visual style: "${STYLE_DESCRIPTIONS[style] || 'cinematic analog film photography, high contrast, dramatic shadows, moody atmosphere, film grain, 35mm'}"
+
+Return ONLY a valid JSON object (no markdown, no prose, no code fences) matching this schema:
+${SCHEMA}
+
+Rules:
+- Define ALL named characters in "characters" FIRST. Characters should feel real, flawed, and layered — never cartoonish.
+- narration must be sparse, literary, and atmospheric — like a film-noir voiceover. Short, evocative sentences. Let silences breathe.
+- visual_description must be photorealistic and cinematic: describe exact framing, lighting conditions, shadows, textures, rain, smoke, neon reflections. Think analog photography — grain, high contrast, dramatic compositions.
+- PACING: build tension slowly. Long establishing shots, intimate close-ups on faces and details. The finale should feel earned.
+- VISUAL LANGUAGE: favor silhouettes, backlit subjects, wet surfaces reflecting light, low-key lighting (darkness with isolated pools of light), and expressive shadows.
+- dialogue: sparse and loaded with subtext. Characters say less than they mean. Every word counts.
+- duration: deliberate and slow — establishing shots 5-7s, intimate scenes 4-6s, climax 6-8s.
+- Incorporate the analog film aesthetic throughout each visual_description.
+
+Story:
+"""
+${story}
+"""`;
+}
+
 function buildPrompt(story: string, style: StylePreset, mode: GenerationMode): string {
   if (mode === 'documentary') return buildDocumentaryPrompt(story, style);
   if (mode === 'storybook') return buildStorybookPrompt(story, style);
+  if (mode === 'cinematic') return buildCinematicPrompt(story, style);
   return buildAnimatedPrompt(story, style);
 }
 

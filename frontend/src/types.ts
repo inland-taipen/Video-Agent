@@ -4,7 +4,7 @@
 // Strategy discriminant: controls prompts, style templates, and quality
 // modifiers throughout the pipeline. The pipeline itself is identical.
 
-export type GenerationMode = 'animated' | 'documentary' | 'storybook';
+export type GenerationMode = 'animated' | 'documentary' | 'storybook' | 'cinematic';
 
 export const MODE_CONFIG: Record<
   GenerationMode,
@@ -23,7 +23,12 @@ export const MODE_CONFIG: Record<
   storybook: {
     label: 'Storybook',
     icon: '📚',
-    description: 'Soft illustrated children\'s tale with watercolor warmth',
+    description: "Soft illustrated children's tale with watercolor warmth",
+  },
+  cinematic: {
+    label: 'Cinematic Film',
+    icon: '🎞️',
+    description: 'Analog film photography via M87 — moody, dramatic, cinematic',
   },
 };
 
@@ -114,6 +119,7 @@ export type PipelineStage =
   | 'scriptwriter'
   | 'visual_director'
   | 'storyboard'
+  | 'veo'
   | 'done'
   | 'error';
 
