@@ -43,5 +43,6 @@ RUN mkdir -p outputs/exports outputs/tts
 ENV PORT=8000
 EXPOSE 8000
 
-# Single process — uvicorn serves both API (/api/*) and frontend (/*) 
-CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT} --workers 1"]
+# WORKDIR must be /app/backend so relative imports (compiler, image_gen, models) resolve
+WORKDIR /app/backend
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 1"]

@@ -56,7 +56,8 @@ TTS_DIR = Path(os.getenv("TTS_DIR", "outputs/tts"))
 TTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Serve built frontend when deployed via Docker
-# The Dockerfile copies frontend/dist → /app/frontend_dist/
+# Dockerfile copies frontend/dist → /app/frontend_dist/
+# __file__ = /app/backend/main.py → parent.parent = /app → /app/frontend_dist
 _FRONTEND_DIST = Path(__file__).parent.parent / "frontend_dist"
 if _FRONTEND_DIST.exists():
     from fastapi.staticfiles import StaticFiles as _StaticFiles
