@@ -120,15 +120,15 @@ _EL_MODEL       = lambda: os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2"
 _EL_BASE        = "https://api.elevenlabs.io/v1"
 
 
-def _elevenlabs_tts(text: str, dest: Path) -> Optional[Path]:
+def _elevenlabs_tts(text: str, dest: Path, voice_id: Optional[str] = None) -> Optional[Path]:
     """Generate MP3 using ElevenLabs API. Returns None on failure."""
     key = _EL_API_KEY()
     if not key:
         return None
     try:
-        voice_id = _EL_VOICE_ID()
-        model    = _EL_MODEL()
-        url = f"{_EL_BASE}/text-to-speech/{voice_id}"
+        vid = voice_id or _EL_VOICE_ID()
+        model = _EL_MODEL()
+        url = f"{_EL_BASE}/text-to-speech/{vid}"
         payload = {
             "text": text,
             "model_id": model,
@@ -156,7 +156,7 @@ def _elevenlabs_tts(text: str, dest: Path) -> Optional[Path]:
         return None
 
 
-def _generate_tts(text: str, dest: Path, lang: str = "en") -> Optional[Path]:
+def _generate_tts(text: str, dest: Path, lang: str = "en", voice_id: Optional[str] = None) -> Optional[Path]:
     """Generate narration audio.
     Priority: ElevenLabs (premium) → gTTS (free fallback).
     Returns Path to MP3 or None if text is blank.
@@ -165,7 +165,7 @@ def _generate_tts(text: str, dest: Path, lang: str = "en") -> Optional[Path]:
         return None
 
     # 1. ElevenLabs — best quality
-    el_result = _elevenlabs_tts(text, dest)
+    el_result = _elevenlabs_tts(text, dest, voice_id)
     if el_result:
         return el_result
 
@@ -238,7 +238,21 @@ def compile_video(
             dest_mp3 = tmp_dir / f"audio_{i:03d}.mp3"
             dest_aac = tmp_dir / f"audio_{i:03d}.aac"
             narration = frame.scene.narration.strip()
-            mp3 = _generate_tts(narration, dest_mp3)
+            
+            # Dynamically pick the best voice based on the scene's style
+            style = (frame.scene.style or "").lower()
+            if "documentary" in style or "photorealistic" in style:
+                voice = "pNInz6obpgDQGcFmaJgB" # Adam (deep, authoritative)
+            elif "noir" in style or "cinematic" in style:
+                voice = "JBFqnCBsd6RMkjVDRZzb" # Marcus (gravelly, intense)
+            elif "anime" in style:
+                voice = "N2lVS1w4EtoT3dr4eOWO" # Callum (British, intense)
+            elif "storybook" in style or "watercolor" in style:
+                voice = "XB0fDUnXU5ywgM19yw7a" # Charlotte (gentle British female)
+            else:
+                voice = None # fallback to default
+
+            mp3 = _generate_tts(narration, dest_mp3, voice_id=voice)
             if mp3 and mp3.exists():
                 # convert mp3 → aac so ffmpeg can concat cleanly
                 subprocess.run(
