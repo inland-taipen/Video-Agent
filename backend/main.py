@@ -55,14 +55,6 @@ EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 TTS_DIR = Path(os.getenv("TTS_DIR", "outputs/tts"))
 TTS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Serve built frontend when deployed via Docker
-# Dockerfile copies frontend/dist → /app/frontend_dist/
-# __file__ = /app/backend/main.py → parent.parent = /app → /app/frontend_dist
-_FRONTEND_DIST = Path(__file__).parent.parent / "frontend_dist"
-if _FRONTEND_DIST.exists():
-    from fastapi.staticfiles import StaticFiles as _StaticFiles
-    app.mount("/", _StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="frontend")
-
 # In-memory job store (fine for single-process server)
 _jobs: Dict[str, ExportStatus] = {}
 _job_lock = threading.Lock()
@@ -1203,12 +1195,17 @@ async def export_download(task_id: str):
 # ─────────────────────────────────────────────────────────────────────────────
 # Frontend Static Files (Fallback)
 # ─────────────────────────────────────────────────────────────────────────────
-FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
-if FRONTEND_DIST.exists():
-    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
+# Serve built frontend — MUST be last so all /api/* routes are registered first.
+# Docker: Dockerfile copies frontend/dist -> /app/frontend_dist/
+_FRONTEND_DIST = Path(__file__).parent.parent / "frontend_dist"   # Docker path
+_FRONTEND_DIST_DEV = Path(__file__).parent.parent / "frontend" / "dist"  # legacy
+
+_dist = _FRONTEND_DIST if _FRONTEND_DIST.exists() else (_FRONTEND_DIST_DEV if _FRONTEND_DIST_DEV.exists() else None)
+if _dist:
+    print(f"  [INFO] Serving frontend from {_dist}")
+    app.mount("/", StaticFiles(directory=str(_dist), html=True), name="frontend")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
