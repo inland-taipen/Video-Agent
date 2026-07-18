@@ -1058,16 +1058,14 @@ async def tts(req: TTSRequest):
 
     if not dest.exists():
         try:
-            import edge_tts
-            communicate = edge_tts.Communicate(req.text.strip(), voice, rate=rate, pitch=pitch)
-            await communicate.save(str(dest))
-        except Exception as edge_err:
-            print(f"  [WARN] edge-tts failed ({edge_err}), falling back to gTTS")
-            try:
-                tts_obj = gTTS(text=req.text, lang=req.lang, slow=False)
-                tts_obj.save(str(dest))
-            except Exception as exc:
-                raise HTTPException(500, f"TTS failed: {exc}")
+            import asyncio
+            from compiler import _generate_tts
+            # _generate_tts is synchronous and uses requests, so run it in a thread
+            result = await asyncio.to_thread(_generate_tts, req.text.strip(), dest, req.lang)
+            if not result or not dest.exists():
+                raise HTTPException(500, "TTS generation returned empty")
+        except Exception as exc:
+            raise HTTPException(500, f"TTS failed: {exc}")
 
     return TTSResponse(
         scene_number=req.scene_number,

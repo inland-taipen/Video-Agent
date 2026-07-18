@@ -23,7 +23,12 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 import requests
-from gtts import gTTS
+# gTTS kept as fallback when ElevenLabs key is not set
+try:
+    from gtts import gTTS as _gTTS
+    _GTTS_AVAILABLE = True
+except ImportError:
+    _GTTS_AVAILABLE = False
 
 from models import ExportRequest, StoryboardFrame
 
@@ -104,17 +109,77 @@ def _placeholder_image(dest: Path, scene_num: int) -> Path:
     return dest
 
 
-def _generate_tts(text: str, dest: Path, lang: str = "en") -> Optional[Path]:
-    """Generate an MP3 using gTTS. Returns None if text is blank."""
-    if not text.strip():
+# ── ElevenLabs config ────────────────────────────────────────────────────────
+# Sign up free at https://elevenlabs.io — 10,000 chars/month free tier
+# Set ELEVENLABS_API_KEY in .env to enable premium voice
+# Voice IDs: Rachel=21m00Tcm4TlvDq8ikWAM, Adam=pNInz6obpgDQGcFmaJgB,
+#            Aria=9BWtsMINqrJLrRacOk9x, Sarah=EXAVITQu4vr4xnSDxMaL
+_EL_API_KEY     = lambda: os.getenv("ELEVENLABS_API_KEY", "").strip()
+_EL_VOICE_ID    = lambda: os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # Rachel
+_EL_MODEL       = lambda: os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2")
+_EL_BASE        = "https://api.elevenlabs.io/v1"
+
+
+def _elevenlabs_tts(text: str, dest: Path) -> Optional[Path]:
+    """Generate MP3 using ElevenLabs API. Returns None on failure."""
+    key = _EL_API_KEY()
+    if not key:
         return None
     try:
-        tts = gTTS(text=text, lang=lang, slow=False)
-        tts.save(str(dest))
+        voice_id = _EL_VOICE_ID()
+        model    = _EL_MODEL()
+        url = f"{_EL_BASE}/text-to-speech/{voice_id}"
+        payload = {
+            "text": text,
+            "model_id": model,
+            "voice_settings": {
+                "stability": 0.45,
+                "similarity_boost": 0.75,
+                "style": 0.20,
+                "use_speaker_boost": True,
+            },
+        }
+        r = requests.post(
+            url,
+            headers={"xi-api-key": key, "Content-Type": "application/json"},
+            json=payload,
+            timeout=60,
+        )
+        if r.status_code != 200:
+            print(f"  [WARN] ElevenLabs {r.status_code}: {r.text[:200]}")
+            return None
+        dest.write_bytes(r.content)
+        print(f"  [OK] ElevenLabs TTS ({len(r.content)//1024}KB)")
         return dest
     except Exception as exc:
-        print(f"  [WARN] TTS failed: {exc}")
+        print(f"  [WARN] ElevenLabs TTS error: {exc}")
         return None
+
+
+def _generate_tts(text: str, dest: Path, lang: str = "en") -> Optional[Path]:
+    """Generate narration audio.
+    Priority: ElevenLabs (premium) → gTTS (free fallback).
+    Returns Path to MP3 or None if text is blank.
+    """
+    if not text.strip():
+        return None
+
+    # 1. ElevenLabs — best quality
+    el_result = _elevenlabs_tts(text, dest)
+    if el_result:
+        return el_result
+
+    # 2. gTTS — free Google TTS fallback
+    if _GTTS_AVAILABLE:
+        try:
+            tts = _gTTS(text=text, lang=lang, slow=False)
+            tts.save(str(dest))
+            print(f"  [INFO] gTTS fallback used")
+            return dest
+        except Exception as exc:
+            print(f"  [WARN] gTTS failed: {exc}")
+
+    return None
 
 
 def _silent_audio(dest: Path, duration: float, ffmpeg: str) -> Path:
