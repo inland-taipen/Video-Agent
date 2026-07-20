@@ -64,7 +64,24 @@ W, H, FPS      = 1024, 576, 25
 
 def _download_media(url: str, dest: Path, scene_num: int, media_type: str) -> Path:
     """Download media; fall back to a coloured placeholder."""
+    import base64 as _b64, re as _re
+
     if not url:
+        return _placeholder_image(dest, scene_num)
+
+    # ── Handle base64 data URLs (e.g. data:image/jpeg;base64,/9j/...)  ─────────
+    # The frontend stores images as data URLs — we must decode them directly.
+    if url.startswith("data:"):
+        try:
+            # Strip the header: "data:image/jpeg;base64,<payload>"
+            match = _re.match(r"data:[^;]+;base64,(.+)", url, _re.DOTALL)
+            if match:
+                raw = _b64.b64decode(match.group(1))
+                dest.write_bytes(raw)
+                print(f"  [OK] Scene {scene_num}: decoded base64 image ({len(raw)//1024}KB)")
+                return dest
+        except Exception as exc:
+            print(f"  [WARN] Scene {scene_num} base64 decode failed: {exc}")
         return _placeholder_image(dest, scene_num)
 
     # Convert relative frontend proxy URLs to absolute backend URLs
