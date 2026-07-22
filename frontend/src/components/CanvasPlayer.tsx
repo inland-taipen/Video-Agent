@@ -3,6 +3,7 @@
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { StoryboardFrame } from '../types';
+import { sfxEngine } from '../utils/sfxEngine';
 
 interface Props {
   frames: StoryboardFrame[];
@@ -116,6 +117,7 @@ export const CanvasPlayer: React.FC<Props> = ({ frames, activeScene, onSceneChan
   const rafRef = useRef<number>(0);
   const startTimeRef = useRef<number>(0);
   const currentSceneRef = useRef<number>(activeScene);
+  const lastSpokenSceneRef = useRef<number | null>(null);
   const imagesRef = useRef<Map<number, HTMLImageElement>>(new Map());
   const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
 
@@ -138,20 +140,30 @@ export const CanvasPlayer: React.FC<Props> = ({ frames, activeScene, onSceneChan
 
   const stopNarration = useCallback(() => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+      try {
+        window.speechSynthesis.cancel();
+      } catch { /* ignore synth errors */ }
     }
     synthRef.current = null;
   }, []);
 
   const speakNarration = useCallback(
-    (text: string) => {
+    (text: string, sceneIdx: number) => {
       if (muted || !text.trim()) return;
+      if (lastSpokenSceneRef.current === sceneIdx) return; // avoid duplicate speech for same scene
+
       stopNarration();
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.rate = 0.95;
-      utt.pitch = 1.0;
-      synthRef.current = utt;
-      window.speechSynthesis.speak(utt);
+      lastSpokenSceneRef.current = sceneIdx;
+
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.rate = 0.95;
+        utt.pitch = 1.0;
+        utt.onend = () => { synthRef.current = null; };
+        utt.onerror = () => { synthRef.current = null; };
+        synthRef.current = utt;
+        window.speechSynthesis.speak(utt);
+      }
     },
     [muted, stopNarration],
   );
@@ -213,10 +225,14 @@ export const CanvasPlayer: React.FC<Props> = ({ frames, activeScene, onSceneChan
         currentSceneRef.current = nextIdx;
         onSceneChange(nextIdx);
         startTimeRef.current = performance.now();
-        speakNarration(frames[nextIdx].scene.narration);
+        speakNarration(frames[nextIdx].scene.narration, nextIdx);
+        sfxEngine.playSFX(frames[nextIdx].scene.sfx || '', frames[nextIdx].scene.style || '');
       } else {
+        // Reached end of storyboard — stop cleanly
         setIsPlaying(false);
         stopNarration();
+        sfxEngine.stopSFX();
+        lastSpokenSceneRef.current = null;
         return;
       }
     }
@@ -228,14 +244,22 @@ export const CanvasPlayer: React.FC<Props> = ({ frames, activeScene, onSceneChan
 
   useEffect(() => {
     if (isPlaying) {
-      startTimeRef.current = performance.now();
-      speakNarration(frames[activeScene]?.scene.narration ?? '');
+      if (lastSpokenSceneRef.current !== activeScene) {
+        startTimeRef.current = performance.now();
+        speakNarration(frames[activeScene]?.scene.narration ?? '', activeScene);
+        sfxEngine.playSFX(frames[activeScene]?.scene.sfx || '', frames[activeScene]?.scene.style || '');
+      }
       rafRef.current = requestAnimationFrame(renderFrame);
     } else {
       cancelAnimationFrame(rafRef.current);
       stopNarration();
+      sfxEngine.stopSFX();
+      lastSpokenSceneRef.current = null;
     }
-    return () => cancelAnimationFrame(rafRef.current);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      sfxEngine.stopSFX();
+    };
   }, [isPlaying, renderFrame, frames, activeScene, speakNarration, stopNarration]);
 
   // Render static frame when scene changes while paused
@@ -284,12 +308,14 @@ export const CanvasPlayer: React.FC<Props> = ({ frames, activeScene, onSceneChan
 
   const handlePrev = () => {
     const prev = Math.max(0, activeScene - 1);
+    lastSpokenSceneRef.current = null;
     onSceneChange(prev);
     startTimeRef.current = performance.now();
   };
 
   const handleNext = () => {
     const next = Math.min(frames.length - 1, activeScene + 1);
+    lastSpokenSceneRef.current = null;
     onSceneChange(next);
     startTimeRef.current = performance.now();
   };
@@ -346,6 +372,7 @@ export const CanvasPlayer: React.FC<Props> = ({ frames, activeScene, onSceneChan
               <span className="scene-badge">{frame.scene.shot_type}</span>
               <span className="scene-badge">{frame.scene.camera_movement}</span>
               <span className="scene-badge">{frame.scene.transition}</span>
+              {frame.scene.sfx && <span className="scene-badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' }}>🔊 {frame.scene.sfx}</span>}
             </div>
             {frame.scene.dialogue.length > 0 && (
               <div className="tis-dialogue">

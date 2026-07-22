@@ -27,7 +27,7 @@ export default function App() {
   const [geminiKey] = useState<string>('backend-proxied');
 
   const handleGenerate = useCallback(
-    async (story: string, st: StylePreset, seed: number, mode: GenerationMode = 'storybook') => {
+    async (story: string, st: StylePreset, seed: number, mode: GenerationMode = 'storybook', sceneCount: number = 6) => {
       setIsGenerating(true);
       setFrames([]);
       setLoadedImages(new Set());
@@ -51,6 +51,7 @@ export default function App() {
           style: st,
           seed,
           mode,
+          sceneCount,
           useVeo,
           onProgress: (state) => setPipelineState(state),
           onFrameLoaded: (i) => {
@@ -75,7 +76,7 @@ export default function App() {
 
   const handleVoiceStory = useCallback(
     (story: string, st: StylePreset) => {
-      handleGenerate(story, st, Math.floor(Math.random() * 99999), 'storybook');
+      handleGenerate(story, st, Math.floor(Math.random() * 99999), 'storybook', 6);
     },
     [handleGenerate],
   );

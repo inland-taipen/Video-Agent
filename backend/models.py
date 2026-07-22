@@ -22,6 +22,7 @@ class Scene(BaseModel):
     camera_movement: str = "STATIC"
     duration: int = 3
     style: str = ""
+    sfx: str = "gentle ambiance"
     seed: int = 42
     media_url: str = ""
     media_type: str = "image"

@@ -48,6 +48,7 @@ export interface Scene {
   camera_movement: string;
   duration: number;
   style: string;
+  sfx?: string;
   seed: number;
   media_url: string;
   media_type: 'image' | 'video';

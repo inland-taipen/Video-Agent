@@ -25,22 +25,23 @@ export interface OrchestratorOptions {
   style: StylePreset;
   seed: number;
   mode: GenerationMode;        // 'animated' | 'documentary' | etc.
+  sceneCount?: number;         // number of scenes to generate (default 6)
   useVeo?: boolean;            // optional: generate 10s video clips with Veo
   onProgress: (state: PipelineState) => void;
   onFrameLoaded: (index: number) => void;
 }
 
 export async function runPipeline(opts: OrchestratorOptions): Promise<StoryboardFrame[]> {
-  const { story, apiKey, style, seed, mode, useVeo, onProgress, onFrameLoaded } = opts;
+  const { story, apiKey, style, seed, mode, sceneCount = 6, useVeo, onProgress, onFrameLoaded } = opts;
 
   const modeIcon = mode === 'documentary' ? '🌍' : '🎌';
 
   // ── Stage 1: Story Generation (LLM Call 1) ───────────────────────────────────
-  onProgress({ stage: 'scriptwriter', message: `${modeIcon} Crafting your ${mode === 'documentary' ? 'documentary' : 'story'}…`, progress: 10 });
+  onProgress({ stage: 'scriptwriter', message: `${modeIcon} Crafting your ${mode === 'documentary' ? 'documentary' : 'story'} (${sceneCount} scenes)…`, progress: 10 });
 
   let storyResult;
   try {
-    storyResult = await runScriptwriter(story, apiKey, style, mode);
+    storyResult = await runScriptwriter(story, apiKey, style, mode, sceneCount);
   } catch (err: unknown) {
     throw new Error(`Scriptwriter failed: ${err instanceof Error ? err.message : String(err)}`);
   }

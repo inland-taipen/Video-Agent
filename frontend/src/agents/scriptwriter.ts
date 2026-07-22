@@ -33,6 +33,7 @@ const SCHEMA = `
       "dialogue": [{"speaker": "<name>", "line": "<spoken text>"}],
       "transition": "<FADE IN | CUT TO | CROSSFADE | DISSOLVE>",
       "visual_description": "<vivid, camera-level description of exactly what is visible>",
+      "sfx": "<ambient sound effect description, e.g. gentle rain, ocean waves, birds chirping, fireplace crackle, space hum>",
       "duration": <integer seconds, 3-8>
     }
   ]
@@ -41,10 +42,10 @@ const SCHEMA = `
 
 // ── Prompt Builders (Strategy pattern — one per mode) ──────────────────────
 
-function buildAnimatedPrompt(story: string, style: StylePreset): string {
+function buildAnimatedPrompt(story: string, style: StylePreset, sceneCount: number): string {
   return `You are a master screenwriter crafting an emotionally engaging anime story.
 
-Create an exactly 4-scene screenplay from the user's story. Each scene should advance the narrative and build emotional momentum.
+Create an exactly ${sceneCount}-scene screenplay from the user's story. Each scene should advance the narrative and build emotional momentum.
 
 Global art style: "${STYLE_DESCRIPTIONS[style]}"
 
@@ -68,10 +69,10 @@ ${story}
 """`;
 }
 
-function buildDocumentaryPrompt(story: string, style: StylePreset): string {
+function buildDocumentaryPrompt(story: string, style: StylePreset, sceneCount: number): string {
   return `You are a professional documentary screenwriter in the style of BBC Earth and National Geographic.
 
-Create an exactly 4-scene educational documentary screenplay from the user's topic. Each scene should educate and inspire the viewer.
+Create an exactly ${sceneCount}-scene educational documentary screenplay from the user's topic. Each scene should educate and inspire the viewer.
 
 Global visual style: "${STYLE_DESCRIPTIONS[style]}"
 
@@ -95,10 +96,10 @@ ${story}
 """`;
 }
 
-function buildStorybookPrompt(story: string, style: StylePreset): string {
+function buildStorybookPrompt(story: string, style: StylePreset, sceneCount: number): string {
   return `You are a warm, gentle storyteller crafting a beautifully illustrated children's storybook.
 
-Create an exactly 4-scene storybook from the user's story. Each scene should feel like a page from a treasured picture book — cozy, magical, and emotionally warm.
+Create an exactly ${sceneCount}-scene storybook from the user's story. Each scene should feel like a page from a treasured picture book — cozy, magical, and emotionally warm.
 
 Global art style: "${STYLE_DESCRIPTIONS[style]}"
 
@@ -122,10 +123,10 @@ ${story}
 """`;
 }
 
-function buildCinematicPrompt(story: string, style: StylePreset): string {
+function buildCinematicPrompt(story: string, style: StylePreset, sceneCount: number): string {
   return `You are a world-class screenwriter crafting a gripping cinematic short film in the style of analog film photography — moody, atmospheric, and visually striking.
 
-Create an exactly 4-scene screenplay from the user's story. Each scene should feel like a frame from a powerful independent film: intimate, tension-filled, and visually arresting.
+Create an exactly ${sceneCount}-scene screenplay from the user's story. Each scene should feel like a frame from a powerful independent film: intimate, tension-filled, and visually arresting.
 
 Global visual style: "${STYLE_DESCRIPTIONS[style] || 'cinematic analog film photography, high contrast, dramatic shadows, moody atmosphere, film grain, 35mm'}"
 
@@ -148,11 +149,11 @@ ${story}
 """`;
 }
 
-function buildPrompt(story: string, style: StylePreset, mode: GenerationMode): string {
-  if (mode === 'documentary') return buildDocumentaryPrompt(story, style);
-  if (mode === 'storybook') return buildStorybookPrompt(story, style);
-  if (mode === 'cinematic') return buildCinematicPrompt(story, style);
-  return buildAnimatedPrompt(story, style);
+function buildPrompt(story: string, style: StylePreset, mode: GenerationMode, sceneCount: number): string {
+  if (mode === 'documentary') return buildDocumentaryPrompt(story, style, sceneCount);
+  if (mode === 'storybook') return buildStorybookPrompt(story, style, sceneCount);
+  if (mode === 'cinematic') return buildCinematicPrompt(story, style, sceneCount);
+  return buildAnimatedPrompt(story, style, sceneCount);
 }
 
 // ── Response Parser ─────────────────────────────────────────────────────────
@@ -210,6 +211,7 @@ function normalizeScenes(raw: Partial<Scene>[]): Scene[] {
     camera_movement: String(r.camera_movement ?? 'STATIC'),
     duration: Number(r.duration ?? 4),
     style: String(r.style ?? ''),
+    sfx: String(r.sfx ?? 'gentle ambiance'),
     seed: 0,
     media_url: '',
     media_type: 'video' as const,
@@ -223,8 +225,9 @@ export async function runScriptwriter(
   apiKey: string,
   style: StylePreset,
   mode: GenerationMode = 'animated',
+  sceneCount: number = 6,
 ): Promise<StoryGeneratorResult> {
-  const prompt = buildPrompt(story, style, mode);
+  const prompt = buildPrompt(story, style, mode, sceneCount);
   const text = await callLLM(apiKey, prompt, true);
   const result = safeParseResponse(text);
   if (result) return result;

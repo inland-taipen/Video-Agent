@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { StylePreset, GenerationMode, MODE_CONFIG } from '../types';
 
 interface Props {
-  onGenerate: (story: string, style: StylePreset, seed: number, mode: GenerationMode) => void;
+  onGenerate: (story: string, style: StylePreset, seed: number, mode: GenerationMode, sceneCount: number) => void;
   isGenerating: boolean;
   useVeo?: boolean;
   onVeoToggle?: (enabled: boolean) => void;
@@ -69,6 +69,7 @@ export const InputPanel: React.FC<Props> = ({ onGenerate, isGenerating, useVeo =
   const [style, setStyle] = useState<StylePreset>('Watercolor');
   const [seed, setSeed] = useState(42);
   const [mode, setMode] = useState<GenerationMode>('storybook');
+  const [sceneCount, setSceneCount] = useState<number>(6);
   const [isListening, setIsListening] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
@@ -110,7 +111,7 @@ export const InputPanel: React.FC<Props> = ({ onGenerate, isGenerating, useVeo =
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!story.trim()) return;
-    onGenerate(story.trim(), style, seed, mode);
+    onGenerate(story.trim(), style, seed, mode, sceneCount);
   };
 
   const GENERATION_MODES = Object.entries(MODE_CONFIG) as [GenerationMode, typeof MODE_CONFIG[GenerationMode]][];
@@ -178,6 +179,34 @@ export const InputPanel: React.FC<Props> = ({ onGenerate, isGenerating, useVeo =
             </button>
           </div>
           <div className="word-count">{story.trim() ? story.trim().split(/\s+/).length : 0} words</div>
+        </div>
+
+        {/* ── Scene Count Selector ── */}
+        <div className="form-group form-group--row">
+          <label className="form-label" style={{ flex: 1 }}>
+            🎬 Scene Count
+          </label>
+          <div className="scene-count-selector" style={{ display: 'flex', gap: '6px' }}>
+            {[4, 6, 8, 10].map((num) => (
+              <button
+                key={num}
+                type="button"
+                className={`btn-icon ${sceneCount === num ? 'btn-icon--active' : ''}`}
+                onClick={() => setSceneCount(num)}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  border: sceneCount === num ? '2px solid #6366f1' : '1px solid #e2e8f0',
+                  background: sceneCount === num ? '#e0e7ff' : '#f8fafc',
+                  color: sceneCount === num ? '#4338ca' : '#475569',
+                  fontWeight: sceneCount === num ? 'bold' : 'normal',
+                  cursor: 'pointer',
+                }}
+              >
+                {num} scenes
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ── Seed ── */}

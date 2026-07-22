@@ -359,11 +359,9 @@ def compile_video(
         if xf_chain:
             video_filter += ";" + xf_chain.rstrip(";")
 
-        # ── Audio filter_complex ─────────────────────────────────────────────
-        # Build per-scene silent-padded audio, then concat
+        # ── Audio filter_complex (Narration + Ambient SFX) ─────────────────
         audio_parts: List[str] = []
         a_labels: List[str] = []
-        actual_audio_inputs = [x for x in audio_input_indices if x is not None]
 
         # Re-derive audio input stream indices cleanly
         audio_stream_map: dict[int, int] = {}  # scene_idx → ffmpeg input idx
@@ -375,16 +373,36 @@ def compile_video(
 
         for i, (frame, dur) in enumerate(zip(frames, durations)):
             a_label = f"a{i}"
+            sfx_label = f"sfx{i}"
+            sfx_text = (getattr(frame.scene, 'sfx', '') or '') + " " + (frame.scene.style or '')
+            text_lower = sfx_text.lower()
+
+            # Select dynamic ambient soundscape filter per scene
+            if any(k in text_lower for k in ["rain", "storm", "thunder", "drizzle"]):
+                sfx_src = f"anoisesrc=d={dur:.3f}:c=pink:r=44100,lowpass=f=900,volume=0.22"
+            elif any(k in text_lower for k in ["ocean", "wave", "sea", "water"]):
+                sfx_src = f"anoisesrc=d={dur:.3f}:c=brown:r=44100,lowpass=f=350,volume=0.25"
+            elif any(k in text_lower for k in ["space", "star", "alien", "ship", "sci-fi"]):
+                sfx_src = f"sine=f=55:d={dur:.3f},volume=0.18"
+            elif any(k in text_lower for k in ["fire", "hearth", "fireplace", "cozy", "storybook"]):
+                sfx_src = f"anoisesrc=d={dur:.3f}:c=pink:r=44100,lowpass=f=550,volume=0.18"
+            elif any(k in text_lower for k in ["forest", "bird", "nature", "park", "wind"]):
+                sfx_src = f"anoisesrc=d={dur:.3f}:c=white:r=44100,bandpass=f=600:w=300,volume=0.18"
+            else:
+                sfx_src = f"sine=f=65:d={dur:.3f},volume=0.15"
+
             if i in audio_stream_map:
                 si = audio_stream_map[i]
-                # pad to scene duration with silence
+                voice_label = f"vvoice{i}"
                 audio_parts.append(
-                    f"[{si}:a]apad=whole_dur={dur:.3f},atrim=0:{dur:.3f}[{a_label}]"
+                    f"[{si}:a]apad=whole_dur={dur:.3f},atrim=0:{dur:.3f}[{voice_label}];"
+                    f"{sfx_src}[{sfx_label}];"
+                    f"[{voice_label}][{sfx_label}]amix=inputs=2:duration=first:weights=1 0.25[{a_label}]"
                 )
             else:
-                # pure silence
+                # SFX ambiance only
                 audio_parts.append(
-                    f"anullsrc=r=44100:cl=mono,atrim=0:{dur:.3f},asetpts=PTS-STARTPTS[{a_label}]"
+                    f"{sfx_src},asetpts=PTS-STARTPTS[{a_label}]"
                 )
             a_labels.append(a_label)
 
