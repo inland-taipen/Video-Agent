@@ -231,6 +231,20 @@ h1,h2,h3,h4,h5,h6{font-family:'Outfit',sans-serif;letter-spacing:-.01em}
 }
 .btn-icon:hover{background:var(--indigo-50);border-color:var(--indigo-200);transform:rotate(20deg)}
 
+/* Scene count selector */
+.scene-count-btn{
+  min-width:32px;height:32px;padding:0 8px;border-radius:var(--r-sm);
+  background:var(--slate-100);border:1.5px solid var(--border);
+  font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
+  color:var(--text-2);cursor:pointer;transition:all .18s var(--ease);
+  display:flex;align-items:center;justify-content:center;
+}
+.scene-count-btn:hover{background:var(--indigo-50);border-color:var(--indigo-300);color:var(--indigo-600)}
+.scene-count-btn--active{
+  background:var(--indigo-50);border-color:var(--indigo-500);
+  color:var(--indigo-700);font-weight:700;box-shadow:0 0 0 2px rgba(99,102,241,.15);
+}
+
 /* Generate Button */
 .btn-generate{
   width:100%;padding:14px 20px;border-radius:var(--r-lg);border:none;

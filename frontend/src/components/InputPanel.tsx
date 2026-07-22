@@ -182,8 +182,8 @@ export const InputPanel: React.FC<Props> = ({ onGenerate, isGenerating, useVeo =
         </div>
 
         {/* ── Scene Count Selector ── */}
-        <div className="form-group form-group--row">
-          <label className="form-label" style={{ flex: 1 }}>
+        <div className="form-group form-group--row" style={{ marginTop: '4px' }}>
+          <label className="form-label" style={{ flex: 1, whiteSpace: 'nowrap' }}>
             🎬 Scene Count
           </label>
           <div className="scene-count-selector" style={{ display: 'flex', gap: '6px' }}>
@@ -191,19 +191,10 @@ export const InputPanel: React.FC<Props> = ({ onGenerate, isGenerating, useVeo =
               <button
                 key={num}
                 type="button"
-                className={`btn-icon ${sceneCount === num ? 'btn-icon--active' : ''}`}
+                className={`scene-count-btn ${sceneCount === num ? 'scene-count-btn--active' : ''}`}
                 onClick={() => setSceneCount(num)}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  border: sceneCount === num ? '2px solid #6366f1' : '1px solid #e2e8f0',
-                  background: sceneCount === num ? '#e0e7ff' : '#f8fafc',
-                  color: sceneCount === num ? '#4338ca' : '#475569',
-                  fontWeight: sceneCount === num ? 'bold' : 'normal',
-                  cursor: 'pointer',
-                }}
               >
-                {num} scenes
+                {num}
               </button>
             ))}
           </div>
@@ -255,8 +246,8 @@ export const InputPanel: React.FC<Props> = ({ onGenerate, isGenerating, useVeo =
                 <div className="veo-toggle-card__title">Veo 3 Video</div>
                 <div className="veo-toggle-card__sub">
                   {useVeo
-                    ? '⚠️ ~₹42/scene · 10s clips · sequential generation'
-                    : 'Generate 10s AI video clips per scene'}
+                    ? '⚠️ ~₹42/scene · 30s clips · sequential generation'
+                    : 'Generate 30s AI video clips per scene'}
                 </div>
               </div>
             </div>

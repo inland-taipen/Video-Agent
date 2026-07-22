@@ -4,7 +4,7 @@
 
 import { Scene, StoryboardFrame } from '../types';
 
-const VEO_DURATION_SECONDS = 10; // 10-second clips to manage credit usage
+const VEO_DURATION_SECONDS = 30; // 30-second video clips
 
 /**
  * Generate a single video clip for a scene via Veo.
@@ -55,7 +55,7 @@ export async function runVeo(
   const failedScenes: number[] = [];
   const total = imageFrames.length;
 
-  onProgress(`🎬 Generating ${total} Veo video clips (10s each)…`, 5);
+  onProgress(`🎬 Generating ${total} Veo video clips (30s each)…`, 5);
 
   for (let i = 0; i < total; i++) {
     const frame = imageFrames[i];

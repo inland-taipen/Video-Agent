@@ -887,7 +887,7 @@ VEO_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
 class VeoRequest(BaseModel):
     prompt: str
-    duration_seconds: int = 10   # 5–10 seconds supported
+    duration_seconds: int = 30   # up to 30 seconds
     aspect_ratio: str = "16:9"   # "16:9" or "9:16"
 
 
@@ -896,7 +896,7 @@ def _submit_veo_job(prompt: str, key: str, model: str, duration: int, aspect: st
     import requests as _req
 
     # Clamp duration to supported range
-    duration = max(5, min(duration, 10))
+    duration = max(5, min(duration, 30))
 
     url = f"{VEO_BASE_URL}/models/{model}:predictLongRunning"
     body = {
