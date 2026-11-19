@@ -34,7 +34,7 @@ Tests (offline; no keys needed): `cd backend && .venv/bin/python -m pytest tests
 | Voice output | ✅ Working (temporary) | Browser `speechSynthesis`, always labelled "computer voice, not theirs" |
 | Server-side voice provider | ⏸ Deferred | `ElevenLabsVoice` + `ServerTextToSpeech` are wired up but off (`LEGACY_ENABLE_ELEVENLABS=1`) |
 | Voice **cloning** | ⏸ Deferred | Needs a paid plan, clean single-speaker clips, and a `voice_clone` consent record (the consent text is already defined) |
-| Supabase / cloud storage | ⏸ Deferred | SQLite + local disk for now, behind the abstractions described below |
+| Hosted database + file storage | ✅ Working | Postgres (e.g. Supabase) via `DATABASE_URL`, recordings in a private Supabase Storage bucket via `LEGACY_STORAGE=supabase`. Without them: SQLite + local disk (dev only — wiped on every Render deploy) |
 | Encryption at rest, audit log, email delivery | ⏸ Deferred | |
 
 ## Architecture
@@ -62,11 +62,26 @@ frontend/src/legacy/
 
 **Adding a provider:** subclass the interface, register it in that module's registry, then select it with an env var (backend) or `voice/index.ts` (frontend). The conversation code doesn't change.
 
-**Moving to Supabase:**
-- Apply `schema.sql` to Postgres, mapping `TEXT` json → `jsonb` and `embedding` → `vector(768)`.
-- Swap `retrieval.search` for a pgvector query.
-- Swap `auth.current_user` for Supabase JWT verification.
-- Add a `SupabaseStorage(StorageBackend)`.
+## Deploying (Render + Supabase)
+
+Render's disk is wiped on every deploy and restart, so production needs a hosted database and file store. One free Supabase project provides both.
+
+1. Create a project at supabase.com.
+2. **Database:** Project → Connect → **Session pooler** → copy the URI (Render has no IPv6, so don't use the "Direct connection" one). Put your database password into it.
+3. **Storage:** Project Settings → API → copy the Project URL and the `service_role` key (secret — server only). The private bucket `legacy` is created automatically on first upload.
+4. In Render → your service → Environment, add:
+   ```
+   DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+   LEGACY_STORAGE=supabase
+   SUPABASE_URL=https://<ref>.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=<service_role key>
+   ```
+   plus the provider keys (`GROQ_API_KEY`, `GEMINI_API_KEY`, …).
+5. Deploy. Tables are created automatically on first start. Optional demo persona: run `python -m legacy.seed_demo` once with those env vars set (locally or in the Render shell).
+
+The SQL is written SQLite-style; `db.py` rewrites it for Postgres (`?` → `%s`, `INSERT OR IGNORE`, `group_concat`). Run the tests against Postgres with `LEGACY_TEST_DATABASE_URL=postgresql://… pytest tests`.
+
+**Later (Supabase-native):** map `TEXT` json → `jsonb` and `embedding` → `vector(768)` with a pgvector query in `retrieval.search`, and swap `auth.current_user` for Supabase JWT verification.
 
 ## Honesty and safety safeguards
 

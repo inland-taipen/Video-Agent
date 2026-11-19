@@ -22,6 +22,30 @@ def db_path() -> Path:
     return Path(_env("LEGACY_DB_PATH") or (data_dir() / "legacy.db"))
 
 
+def database_url() -> str:
+    """Postgres connection string (e.g. Supabase). Empty → local SQLite file."""
+    return _env("LEGACY_DATABASE_URL") or _env("DATABASE_URL")
+
+
+def supabase_url() -> str:
+    return _env("SUPABASE_URL").rstrip("/")
+
+
+def supabase_service_key() -> str:
+    return _env("SUPABASE_SERVICE_ROLE_KEY")
+
+
+def storage_bucket() -> str:
+    return _env("LEGACY_STORAGE_BUCKET", "legacy")
+
+
+def cache_root() -> Path:
+    """Local cache for files kept in cloud storage (FFmpeg and FileResponse need a path)."""
+    p = data_dir() / "cache"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
 def storage_root() -> Path:
     p = Path(_env("LEGACY_STORAGE_DIR") or (data_dir() / "storage"))
     p.mkdir(parents=True, exist_ok=True)

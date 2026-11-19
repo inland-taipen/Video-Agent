@@ -104,7 +104,7 @@ def capabilities():
         "embeddings": {"model": embed.model_id, "status": "working" if embed.model_id.startswith("gemini") else "mock"},
         "voices": voices.catalogue(),
         "storage": {"backend": get_storage().name},
-        "database": {"backend": "sqlite"},
+        "database": {"backend": db.backend_name()},
         "consent_text": {"persona": PERSONA_CONSENT, "voice_clone": VOICE_CLONE_CONSENT},
     }
 
@@ -569,7 +569,7 @@ def list_conversations(persona_id: str, user: dict = CurrentUser):
 def get_conversation(cid: str, user: dict = CurrentUser):
     c = _conversation_or_404(cid, user)
     turns = db.all_rows(
-        "SELECT id, role, text, source_ids, grounded, provider, created_at FROM conversation_turns WHERE conversation_id = ? ORDER BY created_at, rowid",
+        f"SELECT id, role, text, source_ids, grounded, provider, created_at FROM conversation_turns WHERE conversation_id = ? ORDER BY created_at, {db.order_tiebreak()}",
         (cid,),
     )
     for t in turns:

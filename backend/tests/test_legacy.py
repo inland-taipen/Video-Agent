@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import time
 
 import pytest
@@ -28,7 +29,17 @@ def client(tmp_path, monkeypatch):
     for key in ("GROQ_API_KEY", "VITE_GROQ_API_KEY", "GEMINI_API_KEY", "ELEVENLABS_API_KEY"):
         monkeypatch.setenv(key, "")
     monkeypatch.setenv("LEGACY_DATA_DIR", str(tmp_path))
-    from legacy import storage
+    # Default: SQLite in tmp_path. Set LEGACY_TEST_DATABASE_URL to run the same suite on Postgres.
+    pg_url = os.getenv("LEGACY_TEST_DATABASE_URL", "")
+    monkeypatch.setenv("DATABASE_URL", pg_url)
+    monkeypatch.setenv("LEGACY_DATABASE_URL", "")
+    monkeypatch.setenv("LEGACY_STORAGE", "local")
+    from legacy import db, storage
+    if pg_url:
+        import psycopg
+        with psycopg.connect(pg_url, autocommit=True) as conn:
+            conn.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public")
+        db.close_pools()
     storage._backend = None  # pick up the temp dir
     from legacy.routes import router
     app = FastAPI()
@@ -185,3 +196,97 @@ def test_storage_rejects_path_traversal(tmp_path):
     s = LocalStorage(tmp_path)
     with pytest.raises(ValueError):
         s.local_path("../../etc/passwd")
+
+
+# ── Supabase Storage backend, against an in-process fake of its REST API ────
+
+class _FakeSupabase:
+    def __init__(self):
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        objects: dict[str, bytes] = {}
+        buckets: set[str] = set()
+        self.objects, self.buckets = objects, buckets
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def _send(self, code, body=b"{}"):
+                self.send_response(code)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _body(self):
+                return self.rfile.read(int(self.headers.get("Content-Length") or 0))
+
+            def _authed(self):
+                return self.headers.get("Authorization") == "Bearer service-key"
+
+            def do_POST(self):
+                if not self._authed():
+                    return self._send(401)
+                if self.path == "/storage/v1/bucket":
+                    name = json.loads(self._body())["id"]
+                    if name in buckets:
+                        return self._send(400, b'{"message":"The resource already exists"}')
+                    buckets.add(name)
+                    return self._send(200)
+                prefix = "/storage/v1/object/"
+                bucket, key = self.path[len(prefix):].split("/", 1)
+                assert bucket in buckets
+                objects[key] = self._body()
+                self._send(200)
+
+            def do_GET(self):
+                if not self._authed():
+                    return self._send(401)
+                key = self.path.split("/storage/v1/object/legacy/", 1)[1]
+                if key not in objects:
+                    return self._send(400, b'{"statusCode":"404","error":"not_found"}')
+                self._send(200, objects[key])
+
+            def do_DELETE(self):
+                for k in json.loads(self._body())["prefixes"]:
+                    objects.pop(k, None)
+                self._send(200, b"[]")
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        self.url = f"http://127.0.0.1:{self.server.server_address[1]}"
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+
+def test_supabase_storage_roundtrip(client, monkeypatch, tmp_path):
+    import shutil
+    from legacy import config, storage
+
+    fake = _FakeSupabase()
+    monkeypatch.setenv("LEGACY_STORAGE", "supabase")
+    monkeypatch.setenv("SUPABASE_URL", fake.url)
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "service-key")
+    storage._backend = None
+    try:
+        h = signup(client, "asha@example.com")
+        pid = make_persona(client, h).json()["id"]
+        audio = io.BytesIO(b"ID3" + b"\x00" * 2048)
+        r = client.post(f"/api/legacy/personas/{pid}/recordings", headers=h, data={"title": "Tape 1"},
+                        files={"file": ("tape1.mp3", audio, "audio/mpeg")})
+        assert r.status_code == 200, r.text
+        rid = r.json()["id"]
+        assert fake.buckets == {"legacy"}
+        assert len(fake.objects) == 1
+        key, blob = next(iter(fake.objects.items()))
+        assert blob == b"ID3" + b"\x00" * 2048
+
+        # Simulate a redeploy wiping the local cache: the file must come back from the bucket.
+        shutil.rmtree(config.cache_root())
+        got = client.get(f"/api/legacy/recordings/{rid}/audio", headers=h)
+        assert got.status_code == 200 and got.content == blob
+
+        assert client.delete(f"/api/legacy/recordings/{rid}", headers=h).status_code == 200
+        assert fake.objects == {}
+    finally:
+        fake.server.shutdown()
+        storage._backend = None

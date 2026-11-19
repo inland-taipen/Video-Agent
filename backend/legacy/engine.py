@@ -109,7 +109,7 @@ def _mock_reply(persona: dict, text: str, mems: list[dict], grounded: bool) -> s
 
 def _history(conversation_id: str) -> list[dict]:
     rows = db.all_rows(
-        "SELECT role, text FROM conversation_turns WHERE conversation_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?",
+        f"SELECT role, text FROM conversation_turns WHERE conversation_id = ? ORDER BY created_at DESC, {db.order_tiebreak()} DESC LIMIT ?",
         (conversation_id, HISTORY_TURNS),
     )
     return [{"role": "assistant" if r["role"] == "persona" else "user", "content": r["text"]} for r in reversed(rows)]
