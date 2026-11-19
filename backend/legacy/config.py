@@ -32,7 +32,8 @@ def supabase_url() -> str:
 
 
 def supabase_service_key() -> str:
-    return _env("SUPABASE_SERVICE_ROLE_KEY")
+    """Server-only key: new-style `sb_secret_…` or legacy `service_role` JWT."""
+    return _env("SUPABASE_SECRET_KEY") or _env("SUPABASE_SERVICE_ROLE_KEY")
 
 
 def storage_bucket() -> str:

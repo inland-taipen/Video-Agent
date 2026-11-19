@@ -90,7 +90,7 @@ class SupabaseStorage(StorageBackend):
         self.key = config.supabase_service_key()
         self.bucket = config.storage_bucket()
         if not self.base or not self.key:
-            raise RuntimeError("LEGACY_STORAGE=supabase needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY")
+            raise RuntimeError("LEGACY_STORAGE=supabase needs SUPABASE_URL and SUPABASE_SECRET_KEY")
         self.cache = LocalStorage(config.cache_root())
         self._bucket_ready = False
 

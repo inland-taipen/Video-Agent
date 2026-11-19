@@ -93,12 +93,17 @@ def _pg_pool(url: str) -> Any:
                 max_size=5,
                 # prepare_threshold=None keeps it compatible with PgBouncer / Supabase pooler.
                 kwargs={"row_factory": dict_row, "prepare_threshold": None, "autocommit": False},
-                check=ConnectionPool.check_connection,
+                # No per-checkout health check: it costs a full round trip on every query.
+                # Idle connections are recycled before the pooler drops them, and
+                # _run_single() retries once if one was dropped anyway.
+                max_idle=120,
+                max_lifetime=1800,
                 open=True,
             )
             _pools[url] = pool
         if url not in _initialised:
             with pool.connection() as conn:
+                conn.autocommit = False
                 # Advisory lock so two instances starting together don't race on CREATE TABLE.
                 conn.execute("SELECT pg_advisory_xact_lock(727274)")
                 conn.execute(_pg_schema())
@@ -124,6 +129,7 @@ def tx() -> Iterator[Any]:
     url = config.database_url()
     if url:
         with _pg_pool(url).connection() as conn:  # commits on success, rolls back on error
+            conn.autocommit = False
             yield _PgConn(conn)
         return
     conn = _sqlite_connect()
@@ -147,35 +153,54 @@ def close_pools() -> None:
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+def _run_single(sql: str, params: tuple, fetch: Optional[str]) -> Any:
+    """Run one statement. On Postgres it uses autocommit — a single network round
+    trip instead of BEGIN/query/COMMIT, which matters with a remote database."""
+    url = config.database_url()
+    if not url:
+        with tx() as c:
+            cur = c.execute(sql, params)
+            return cur.fetchone() if fetch == "one" else cur.fetchall() if fetch == "all" else None
+    import psycopg
+
+    for attempt in (0, 1):
+        try:
+            with _pg_pool(url).connection() as conn:
+                conn.autocommit = True
+                cur = conn.execute(_pg_sql(sql), tuple(params))
+                return cur.fetchone() if fetch == "one" else cur.fetchall() if fetch == "all" else None
+        except psycopg.OperationalError:
+            if attempt:
+                raise
+            # A connection was dropped while idle (pooler timeout, DB restart). The others
+            # are probably dead too: test and discard idle ones, then retry once.
+            _pg_pool(url).check()
+
+
 def one(sql: str, params: tuple = ()) -> Optional[dict]:
-    with tx() as c:
-        row = c.execute(sql, params).fetchone()
-        return dict(row) if row else None
+    row = _run_single(sql, params, "one")
+    return dict(row) if row else None
 
 
 def all_rows(sql: str, params: tuple = ()) -> list[dict]:
-    with tx() as c:
-        return [dict(r) for r in c.execute(sql, params).fetchall()]
+    return [dict(r) for r in _run_single(sql, params, "all")]
 
 
 def execute(sql: str, params: tuple = ()) -> None:
-    with tx() as c:
-        c.execute(sql, params)
+    _run_single(sql, params, None)
 
 
 def insert(table: str, row: dict[str, Any]) -> None:
     cols = ", ".join(row)
     qs = ", ".join("?" for _ in row)
-    with tx() as c:
-        c.execute(f"INSERT INTO {table} ({cols}) VALUES ({qs})", tuple(row.values()))
+    _run_single(f"INSERT INTO {table} ({cols}) VALUES ({qs})", tuple(row.values()), None)
 
 
 def update(table: str, key: str, key_val: Any, fields: dict[str, Any]) -> None:
     if not fields:
         return
     sets = ", ".join(f"{k} = ?" for k in fields)
-    with tx() as c:
-        c.execute(f"UPDATE {table} SET {sets} WHERE {key} = ?", (*fields.values(), key_val))
+    _run_single(f"UPDATE {table} SET {sets} WHERE {key} = ?", (*fields.values(), key_val), None)
 
 
 def jload(value: Optional[str], default: Any) -> Any:
