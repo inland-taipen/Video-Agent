@@ -598,3 +598,10 @@ h1,h2,h3,h4,h5,h6{font-family:'Outfit',sans-serif;letter-spacing:-.01em}
 .veo-switch--on .veo-switch__thumb {
   transform: translateX(20px);
 }
+
+/* Section switcher (Stories / Digital Legacy) */
+.section-nav{display:flex;gap:4px;background:var(--slate-100);border-radius:var(--r-pill);padding:4px}
+.section-link{padding:6px 14px;border-radius:var(--r-pill);font:600 .85rem 'Inter',sans-serif;color:var(--text-2);text-decoration:none;white-space:nowrap}
+.section-link:hover{color:var(--text-1)}
+.section-link--active{background:#fff;color:var(--text-1);box-shadow:var(--shadow-xs)}
+@media (max-width:760px){.header-badges{display:none}}

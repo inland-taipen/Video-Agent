@@ -132,7 +132,7 @@ def _placeholder_image(dest: Path, scene_num: int) -> Path:
 # Voice IDs: Rachel=21m00Tcm4TlvDq8ikWAM, Adam=pNInz6obpgDQGcFmaJgB,
 #            Aria=9BWtsMINqrJLrRacOk9x, Sarah=EXAVITQu4vr4xnSDxMaL
 _EL_API_KEY     = lambda: os.getenv("ELEVENLABS_API_KEY", "").strip()
-_EL_VOICE_ID    = lambda: os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # Rachel
+_EL_VOICE_ID    = lambda: os.getenv("ELEVENLABS_VOICE_ID", "EXAVITQu4vr4xnSDxMaL")  # Sarah (premade; works on free tier)
 _EL_MODEL       = lambda: os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2")
 _EL_BASE        = "https://api.elevenlabs.io/v1"
 
@@ -261,11 +261,11 @@ def compile_video(
             if "documentary" in style or "photorealistic" in style:
                 voice = "pNInz6obpgDQGcFmaJgB" # Adam (deep, authoritative)
             elif "noir" in style or "cinematic" in style:
-                voice = "JBFqnCBsd6RMkjVDRZzb" # Marcus (gravelly, intense)
+                voice = "JBFqnCBsd6RMkjVDRZzb" # George (warm storyteller)
             elif "anime" in style:
                 voice = "N2lVS1w4EtoT3dr4eOWO" # Callum (British, intense)
             elif "storybook" in style or "watercolor" in style:
-                voice = "XB0fDUnXU5ywgM19yw7a" # Charlotte (gentle British female)
+                voice = "pFZP5JQG7iQjIQuC4Bku" # Lily (velvety British female, premade)
             else:
                 voice = None # fallback to default
 

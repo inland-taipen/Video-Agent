@@ -17,6 +17,8 @@ venv/
 env/
 
 # Generated outputs (large binary files, not source)
+# Digital Legacy local DB + uploaded recordings (personal data — never commit)
+backend/data/
 backend/outputs/
 outputs/
 

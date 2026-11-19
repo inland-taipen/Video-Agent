@@ -1,38 +1,26 @@
 // src/agents/transcriber.ts
-// Groq audio agent: audio → raw transcript → rough script → polished script
+// Audio agent (Groq Whisper via backend): audio → raw transcript → rough script → polished script
 
 import { TranscriptionResult } from '../types';
 import { callLLM } from './llm';
 
-const GROQ_BASE = 'https://api.groq.com/openai/v1';
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Stage 1 — Raw Transcript via Groq Whisper
+// Stage 1 — Raw Transcript via Groq Whisper (proxied by the backend, so the
+// Groq API key never reaches the browser)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function transcribeAudio(
-  apiKey: string,
+  _apiKey: string, // kept for signature compatibility; backend reads GROQ_API_KEY
   file: File,
 ): Promise<{ transcript: string; language: string }> {
-  // We use whisper-large-v3, which has excellent multilingual support
-  const url = `${GROQ_BASE}/audio/transcriptions`;
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('model', 'whisper-large-v3');
-  // Request verbose JSON to get language info
-  formData.append('response_format', 'verbose_json');
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: formData,
-  });
-
+  const res = await fetch(`${backendUrl}/api/transcribe`, { method: 'POST', body: formData });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Groq Audio API error ${res.status}: ${err.slice(0, 400)}`);
+    throw new Error(`Transcription error ${res.status}: ${err.slice(0, 400)}`);
   }
 
   const data = await res.json();

@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import { InputPanel } from './components/InputPanel';
 import { VoiceUploadPanel } from './components/VoiceUploadPanel';
 import { PipelineStatus } from './components/PipelineStatus';
@@ -9,6 +9,11 @@ import { ExportPanel } from './components/ExportPanel';
 import { runPipeline } from './agents/orchestrator';
 import { PipelineState, StoryboardFrame, StylePreset, GenerationMode } from './types';
 
+
+const LegacyApp = lazy(() => import('./legacy/LegacyApp'));
+
+type Section = 'stories' | 'legacy';
+const sectionFromHash = (): Section => (window.location.hash.startsWith('#/legacy') ? 'legacy' : 'stories');
 
 const IDLE_STATE: PipelineState = { stage: 'idle', message: '', progress: 0 };
 
@@ -25,6 +30,13 @@ export default function App() {
   const [useVeo, setUseVeo] = useState(false);
   // LLM calls are proxied through the backend (/api/llm); no key needed here.
   const [geminiKey] = useState<string>('backend-proxied');
+  const [section, setSection] = useState<Section>(sectionFromHash);
+
+  useEffect(() => {
+    const onHash = () => setSection(sectionFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   const handleGenerate = useCallback(
     async (story: string, st: StylePreset, seed: number, mode: GenerationMode = 'storybook', sceneCount: number = 6) => {
@@ -95,6 +107,10 @@ export default function App() {
               <p className="header-sub">Story → Storyboard → Video</p>
             </div>
           </div>
+          <nav className="section-nav" aria-label="Sections">
+            <a href="#/" className={`section-link ${section === 'stories' ? 'section-link--active' : ''}`}>Stories</a>
+            <a href="#/legacy" className={`section-link ${section === 'legacy' ? 'section-link--active' : ''}`}>Digital Legacy</a>
+          </nav>
           <div className="header-badges">
             <span className="badge">Gemini Image</span>
             <span className="badge">Veo 3</span>
@@ -105,6 +121,13 @@ export default function App() {
         </div>
       </header>
 
+      {section === 'legacy' && (
+        <Suspense fallback={<div className="app-main">Loading…</div>}>
+          <LegacyApp />
+        </Suspense>
+      )}
+
+      {section === 'stories' && (<>
       <main className="app-main">
         {/* Left sidebar */}
         <aside className="sidebar">
@@ -215,6 +238,7 @@ export default function App() {
           · FFmpeg · gTTS
         </p>
       </footer>
+      </>)}
     </div>
   );
 }

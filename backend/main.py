@@ -121,7 +121,7 @@ def _call_gemini(prompt: str, model: str, json_mode: bool, key: str):
 def _call_groq(prompt: str, json_mode: bool, key: str):
     import requests
     body = {
-        "model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+        "model": os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.2,
         "top_p": 0.95,
@@ -1188,6 +1188,37 @@ async def export_download(task_id: str):
         filename="story_video.mp4",
         headers={"Content-Disposition": "attachment; filename=story_video.mp4"},
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Speech-to-text proxy for the Stories voice uploader (keeps GROQ_API_KEY server-side)
+# ─────────────────────────────────────────────────────────────────────────────
+from fastapi import File, UploadFile  # noqa: E402
+
+from legacy.providers.http import ProviderError as _ProviderError  # noqa: E402
+from legacy.providers.stt import STTUnavailable as _STTUnavailable, transcribe_bytes_quick  # noqa: E402
+
+
+@app.post("/api/transcribe")
+async def transcribe(file: UploadFile = File(...)):
+    data = await file.read()
+    if len(data) > 100 * 1024 * 1024:
+        raise HTTPException(413, "Audio file too large (max 100 MB)")
+    try:
+        t = transcribe_bytes_quick(data, file.filename or "audio.webm")
+    except _STTUnavailable as exc:
+        raise HTTPException(503, f"Speech-to-text unavailable: {exc}")
+    except _ProviderError as exc:
+        raise HTTPException(502, f"Speech-to-text failed: {str(exc)[:300]}")
+    return {"text": t.text, "language": t.language or "English"}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI Digital Legacy (persona memories + voice conversation) — /api/legacy/*
+# ─────────────────────────────────────────────────────────────────────────────
+from legacy.routes import router as legacy_router  # noqa: E402
+
+app.include_router(legacy_router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

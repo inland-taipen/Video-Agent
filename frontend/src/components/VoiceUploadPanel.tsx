@@ -60,13 +60,8 @@ export const VoiceUploadPanel: React.FC<Props> = ({ onUseStory }) => {
       return;
     }
 
-    // Read apiKey fresh from state (captured correctly inside callback)
-    const currentKey = import.meta.env.VITE_GROQ_API_KEY;
-    if (!currentKey) {
-      setError('Missing VITE_GROQ_API_KEY in frontend/.env — get a free key at console.groq.com');
-      setPhase('error');
-      return;
-    }
+    // Transcription is proxied through the backend; no API key in the browser.
+    const currentKey = 'backend-proxied';
     setAudioFile(file);
     setAudioUrl(URL.createObjectURL(file));
     setPhase('processing');

@@ -8,13 +8,10 @@ RUN npm install
 
 COPY frontend/ ./
 
-# Vite bakes the backend URL into the JS bundle at build time
+# Vite bakes the backend URL into the JS bundle at build time.
+# Never pass API keys as VITE_* vars — they would be visible to every visitor.
 ARG VITE_BACKEND_URL
-ARG VITE_GEMINI_API_KEY
-ARG VITE_GROQ_API_KEY
 ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
-ENV VITE_GEMINI_API_KEY=$VITE_GEMINI_API_KEY
-ENV VITE_GROQ_API_KEY=$VITE_GROQ_API_KEY
 
 RUN npm run build
 
@@ -38,7 +35,7 @@ COPY backend/ ./backend/
 COPY --from=frontend-builder /app/frontend/dist ./frontend_dist/
 
 # Output dirs
-RUN mkdir -p outputs/exports outputs/tts
+RUN mkdir -p outputs/exports outputs/tts backend/data
 
 ENV PORT=8000
 EXPOSE 8000
