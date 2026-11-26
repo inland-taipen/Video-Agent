@@ -95,7 +95,7 @@ async def health():
 class LLMRequest(BaseModel):
     prompt: str
     json_mode: bool = True
-    model: str = "gemini-2.5-flash"
+    model: str = "gemini-3.1-flash-lite"
 
 
 def _call_gemini(prompt: str, model: str, json_mode: bool, key: str):
@@ -112,6 +112,11 @@ def _call_gemini(prompt: str, model: str, json_mode: bool, key: str):
         json=body,
         timeout=120,
     )
+    fallback = os.getenv("GEMINI_TEXT_MODEL", "gemini-3.1-flash-lite")
+    if r.status_code == 404 and model != fallback:
+        # Google retires models for new keys (e.g. gemini-2.5-flash); retry on one that works.
+        print(f"  [WARN] Gemini model {model} unavailable, retrying with {fallback}")
+        return _call_gemini(prompt, fallback, json_mode, key)
     if r.status_code != 200:
         raise RuntimeError(f"Gemini {r.status_code}: {r.text[:300]}")
     data = r.json()

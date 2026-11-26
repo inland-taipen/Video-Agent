@@ -5,7 +5,7 @@ export async function callLLM(
   _apiKey: string, // kept for signature compatibility; backend reads key from env
   prompt: string,
   jsonMode = true,
-  model = 'gemini-2.5-flash',
+  model = 'gemini-3.1-flash-lite',
 ): Promise<string> {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
   const res = await fetch(`${backendUrl}/api/llm`, {
