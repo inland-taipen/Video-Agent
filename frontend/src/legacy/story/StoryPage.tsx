@@ -438,7 +438,7 @@ function TalkToAI({ persona, onStart }: { persona: Persona | null; onStart: () =
     <div className="lg-card lg-stack st-ai">
       <h2>Talk to AI {first}</h2>
       <p className="lg-lead">
-        An AI recreation of {first} that answers by voice or text using only the {n} {n === 1 ? 'memory' : 'memories'} in this story —
+        An AI recreation of {first} that answers by voice or text using only {n ? `the ${n} ${n === 1 ? 'memory' : 'memories'}` : 'the memories'} in this story —
         from the interviews, what {first} shared, and what the family recorded. If something was never recorded, it says so instead of making it up.
       </p>
       {n === 0 ? (
