@@ -147,7 +147,7 @@ export function CallScreen({ persona, caps, onClose }: { persona: Persona; caps:
           <p className="lg-sheet__label">{openSource.source_kind === 'family_account' ? 'Told by family' : 'From the recording'}{openSource.recording_title ? ` “${openSource.recording_title}”` : ''}</p>
           {openSource.excerpt && <blockquote className="lg-quote lg-quote--dark">“{openSource.excerpt}”</blockquote>}
           <p>{openSource.summary}</p>
-          {openSource.recording_id && <OriginalClip recordingId={openSource.recording_id} start={openSource.start_sec} end={openSource.end_sec} />}
+          {openSource.recording_id && openSource.has_audio !== false && <OriginalClip recordingId={openSource.recording_id} start={openSource.start_sec} end={openSource.end_sec} />}
         </div>
       )}
     </div>

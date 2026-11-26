@@ -93,6 +93,7 @@ def public_memory(m: dict) -> dict:
     """Shape a memory row for API responses (drops the raw vector)."""
     return {
         "id": m["id"], "recording_id": m["recording_id"], "recording_title": m.get("recording_title"),
+        "has_audio": m.get("recording_source") == "audio",
         "title": m["title"], "summary": m["summary"], "excerpt": m["excerpt"],
         "start_sec": m["start_sec"], "end_sec": m["end_sec"], "time_period": m["time_period"],
         "places": db.jload(m["places"], []), "themes": db.jload(m["themes"], []),

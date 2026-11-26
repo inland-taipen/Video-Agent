@@ -33,7 +33,7 @@ export interface Recording {
 }
 
 export interface Memory {
-  id: string; recording_id: string | null; recording_title: string | null; title: string; summary: string;
+  id: string; recording_id: string | null; recording_title: string | null; has_audio?: boolean; title: string; summary: string;
   excerpt: string; start_sec: number | null; end_sec: number | null; time_period: string; places: string[];
   themes: string[]; people: string; source_kind: 'own_words' | 'family_account'; embedding_model: string;
   score?: number | null; relevant?: boolean | null; created_at: string;
@@ -95,8 +95,33 @@ export function setToken(token: string | null) {
 let onUnauthorized: (() => void) | null = null;
 export function setUnauthorizedHandler(fn: () => void) { onUnauthorized = fn; }
 
+// ── Story-link mode ─────────────────────────────────────────────────────────
+// On a subject's private link (#/story/<token>) the same Legacy screens (memories,
+// voice/text conversation) run without an account: calls are rewritten to the
+// link-scoped /story/<token>/… endpoints, and no family session token is sent.
+let storyToken: string | null = null;
+export function setStoryToken(token: string | null) { storyToken = token; }
+
+const STORY_ROUTES: [RegExp, string][] = [
+  [/^\/personas\/[^/]+$/, '/persona'],
+  [/^\/personas\/[^/]+\/(photo|memories|conversations|speak)(.*)$/, '/$1$2'],
+  [/^\/conversations\/(.*)$/, '/conversations/$1'],
+  [/^\/recordings\/([^/]+)\/audio$/, '/recordings/$1/audio'],
+  [/^\/stt$/, '/stt'],
+];
+
+function url(path: string): string {
+  if (storyToken) {
+    const [p, q = ''] = path.split(/(?=\?)/);
+    for (const [re, to] of STORY_ROUTES) {
+      if (re.test(p)) return `${BASE}/story/${encodeURIComponent(storyToken)}${p.replace(re, to)}${q}`;
+    }
+  }
+  return `${BASE}${path}`;
+}
+
 function headers(extra?: HeadersInit): HeadersInit {
-  const t = getToken();
+  const t = storyToken ? null : getToken();
   return { ...(t ? { Authorization: `Bearer ${t}` } : {}), ...(extra || {}) };
 }
 
@@ -115,7 +140,7 @@ async function req<T>(method: string, path: string, body?: unknown, signal?: Abo
   const isForm = body instanceof FormData;
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, {
+    res = await fetch(url(path), {
       method,
       headers: headers(body && !isForm ? { 'Content-Type': 'application/json' } : undefined),
       body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
@@ -193,14 +218,14 @@ export const api = {
 
 /** Fetch an authenticated binary resource (photo, original audio) as an object URL. */
 export async function fetchBlobUrl(path: string, signal?: AbortSignal): Promise<string> {
-  const res = await fetch(`${BASE}${path}`, { headers: headers(), signal });
+  const res = await fetch(url(path), { headers: headers(), signal });
   if (!res.ok) await fail(res);
   return URL.createObjectURL(await res.blob());
 }
 
 /** POST for server-side voice synthesis (only for non-browser voice providers). */
 export async function fetchSpeech(pid: string, text: string, signal?: AbortSignal): Promise<Blob> {
-  const res = await fetch(`${BASE}/personas/${pid}/speak`, {
+  const res = await fetch(url(`/personas/${pid}/speak`), {
     method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ text }), signal,
   });
   if (!res.ok) await fail(res);
@@ -217,7 +242,7 @@ export type ReplyEvent =
 export async function* streamReply(cid: string, text: string, signal: AbortSignal): AsyncGenerator<ReplyEvent> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}/conversations/${cid}/messages`, {
+    res = await fetch(url(`/conversations/${cid}/messages`), {
       method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ text }), signal,
     });
   } catch (e) {

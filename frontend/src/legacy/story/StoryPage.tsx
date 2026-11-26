@@ -3,8 +3,11 @@
 // life-story interview on the right. No account — the token in the URL is the key, and it
 // only reaches this person's interview and finished biography.
 import React, { useEffect, useRef, useState } from 'react';
-import { BookOpen, Check, FileAudio, History, MessageCircle, Mic, PenLine, Send, Share2, Square, X } from 'lucide-react';
-import { InterviewSession, InterviewTurn, SharedItem, StoryPageData, storyApi } from '../api';
+import { BookOpen, Check, FileAudio, History, Library, MessageCircle, Mic, PenLine, Phone, Send, Share2, Square, X } from 'lucide-react';
+import { api, Capabilities, InterviewSession, InterviewTurn, Persona, setStoryToken, SharedItem, StoryPageData, storyApi } from '../api';
+import { CallScreen } from '../call/CallScreen';
+import { HistoryTab } from '../components/tabs/HistoryTab';
+import { MemoriesTab } from '../components/tabs/MemoriesTab';
 import { ErrorNote, initials, Spinner } from '../components/common';
 import { Markdown, useDictation } from '../components/tabs/LifeStoryTab';
 import '../legacy.css';
@@ -15,10 +18,26 @@ export default function StoryPage({ token }: { token: string }) {
   const [session, setSession] = useState<InterviewSession | null>(null);
   const [turns, setTurns] = useState<InterviewTurn[]>([]);
   const [reading, setReading] = useState(false);
-  const [view, setView] = useState<'talk' | 'share' | 'past'>(() => {
-    const sub = window.location.hash.split('/')[3];  // #/story/<token>/share|past
-    return sub === 'share' || sub === 'past' ? sub : 'talk';
+  const [view, setView] = useState<View>(() => {
+    const sub = window.location.hash.split('/')[3] as View;  // #/story/<token>/<view>
+    return VIEWS.some(([v]) => v === sub) ? sub : 'talk';
   });
+  const [persona, setPersona] = useState<Persona | null>(null);
+  const [caps, setCaps] = useState<Capabilities | null>(null);
+  const [inCall, setInCall] = useState(false);
+
+  // Route the shared Legacy screens (memories, AI conversation) through this link.
+  setStoryToken(token);
+  useEffect(() => () => setStoryToken(null), []);
+  const loadPersona = () => api.persona('link').then(setPersona).catch(() => undefined);
+  useEffect(() => {
+    loadPersona();
+    api.capabilities().then(setCaps).catch(() => setCaps(null));
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pick = (v: View) => {
+    setView(v);
+    history.replaceState(null, '', `#/story/${token}${v === 'talk' ? '' : `/${v}`}`);
+  };
   const [done, setDone] = useState(false);
 
   const load = () => storyApi.page(token).then((d) => {
@@ -31,6 +50,10 @@ export default function StoryPage({ token }: { token: string }) {
     return <div className="lg lg-center st-msg"><div className="lg-card"><h2>Link not available</h2><p className="lg-muted">{loadError}</p></div></div>;
   }
   if (!data) return <div className="lg lg-center"><Spinner label="Opening…" /></div>;
+
+  if (inCall && persona) {
+    return <div className="lg"><CallScreen persona={persona} caps={caps} onClose={() => { setInCall(false); loadPersona(); }} /></div>;
+  }
 
   const fullName = `${data.page.honorific ? `${data.page.honorific} ` : ''}${data.name}`;
   const started = !!data.open_session || data.sessions_done > 0;
@@ -70,15 +93,17 @@ export default function StoryPage({ token }: { token: string }) {
       <main className="st-main">
         {!session && !reading && (
           <nav className="st-nav" role="tablist">
-            {([['talk', 'Conversation', MessageCircle], ['share', 'Share something', Share2], ['past', 'Past conversations', History]] as const).map(([v, label, Icon]) => (
-              <button key={v} role="tab" aria-selected={view === v} className={`lg-chip ${view === v ? 'is-active' : ''}`} onClick={() => setView(v)}>
-                <Icon size={14} /> {label}
+            {VIEWS.map(([v, label, Icon]) => (
+              <button key={v} role="tab" aria-selected={view === v} className={`lg-chip ${view === v ? 'is-active' : ''}`} onClick={() => pick(v)}>
+                <Icon size={14} /> {v === 'ai' ? `Talk to AI ${data.name.split(' ')[0]}` : label}
               </button>
             ))}
           </nav>
         )}
-        {!session && !reading && view === 'share' ? <Share token={token} firstName={data.name.split(' ')[0]} onShared={load} />
-        : !session && !reading && view === 'past' ? <Past token={token} firstName={data.name.split(' ')[0]} />
+        {!session && !reading && view === 'share' ? <Share token={token} firstName={data.name.split(' ')[0]} onShared={() => { load(); loadPersona(); }} />
+        : !session && !reading && view === 'past' ? <Past token={token} firstName={data.name.split(' ')[0]} persona={persona} />
+        : !session && !reading && view === 'memories' ? (persona ? <MemoriesTab persona={persona} /> : <Spinner label="Loading memories…" />)
+        : !session && !reading && view === 'ai' ? <TalkToAI persona={persona} onStart={() => setInCall(true)} />
         : reading && data.biography ? (
           <div className="lg-stack">
             <button className="lg-btn lg-btn--ghost lg-btn--sm st-back" onClick={() => setReading(false)}><X size={14} /> Close biography</button>
@@ -354,7 +379,17 @@ function MemoRecorder({ onRecorded }: { onRecorded: (f: File | null) => void }) 
 
 // ── Past conversations ──────────────────────────────────────────────────────
 
-function Past({ token, firstName }: { token: string; firstName: string }) {
+function Past({ token, firstName, persona }: { token: string; firstName: string; persona: Persona | null }) {
+  return (
+    <div className="lg-stack">
+      <h3>Interviews</h3>
+      <PastInterviews token={token} firstName={firstName} />
+      {persona && <><h3>Conversations with AI {firstName}</h3><HistoryTab persona={persona} /></>}
+    </div>
+  );
+}
+
+function PastInterviews({ token, firstName }: { token: string; firstName: string }) {
   const [items, setItems] = useState<InterviewSession[] | null>(null);
   const [error, setError] = useState('');
   const [open, setOpen] = useState<string | null>(null);
@@ -387,3 +422,33 @@ function Past({ token, firstName }: { token: string; firstName: string }) {
 }
 
 function answersLabel(n: number) { return `${n} ${n === 1 ? 'answer' : 'answers'}`; }
+
+type View = 'talk' | 'ai' | 'memories' | 'share' | 'past';
+const VIEWS = [
+  ['talk', 'Interview', MessageCircle], ['ai', 'Talk to AI', Phone], ['memories', 'Memories', Library],
+  ['share', 'Share something', Share2], ['past', 'Past conversations', History],
+] as const;
+
+/** Entry to the memory-grounded AI conversation (the Legacy call screen, by voice or text). */
+function TalkToAI({ persona, onStart }: { persona: Persona | null; onStart: () => void }) {
+  if (!persona) return <Spinner label="Loading…" />;
+  const first = persona.name.split(' ')[0];
+  const n = persona.counts.memories;
+  return (
+    <div className="lg-card lg-stack st-ai">
+      <h2>Talk to AI {first}</h2>
+      <p className="lg-lead">
+        An AI recreation of {first} that answers by voice or text using only the {n} {n === 1 ? 'memory' : 'memories'} in this story —
+        from the interviews, what {first} shared, and what the family recorded. If something was never recorded, it says so instead of making it up.
+      </p>
+      {n === 0 ? (
+        <div className="lg-alert lg-alert--warn">There are no memories yet. Do an interview or share something first — then there will be something to talk about.</div>
+      ) : (
+        <div className="lg-actions">
+          <button className="lg-btn lg-btn--call lg-btn--lg" onClick={onStart}><Phone size={20} /> Start conversation</button>
+          <span className="lg-small lg-muted">It's an AI, not the real {first}, and the voice is a computer voice.</span>
+        </div>
+      )}
+    </div>
+  );
+}

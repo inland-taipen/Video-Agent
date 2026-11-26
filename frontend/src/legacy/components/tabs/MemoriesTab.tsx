@@ -103,7 +103,7 @@ function MemoryCard({ m, canEdit, searching, onChanged }: { m: Memory; canEdit: 
       )}
       <footer className="lg-memory__foot">
         <span className="lg-small lg-muted">From “{m.recording_title || 'a recording'}”</span>
-        {m.recording_id && <OriginalClip recordingId={m.recording_id} start={m.start_sec} end={m.end_sec} compact />}
+        {m.recording_id && m.has_audio !== false && <OriginalClip recordingId={m.recording_id} start={m.start_sec} end={m.end_sec} compact />}
         {canEdit && !editing && (
           <span className="lg-actions">
             <button className="lg-btn lg-btn--ghost lg-btn--sm" onClick={() => setEditing(true)} aria-label="Edit memory"><Pencil size={14} /></button>

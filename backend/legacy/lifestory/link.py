@@ -11,11 +11,12 @@ revokes the old link but keeps the same link account, so interviews carry on.
 from __future__ import annotations
 
 import hashlib
+import json
 import secrets
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from .. import db
@@ -219,3 +220,129 @@ def story_sessions(token: str):
         (p["id"], u["id"]),
     )
     return [ls._session_out(s, turns=True) for s in rows]
+
+
+# ── The full legacy on the link: memories + conversation with the AI recreation ──
+# The same screens as the signed-in app (MemoriesTab, CallScreen) run against these.
+
+def _visitor(p: dict, u: dict) -> dict:
+    """Who the AI recreation is talking to on the link (honest: we only know it's the link)."""
+    return {**u, "name": f"someone using {p['name'].split()[0]}'s private story link"}
+
+
+@router.get("/story/{token}/persona")
+def story_persona(token: str):
+    p, _ = _resolve(token)
+    out = core._persona_out(p, "listener")
+    out["people"] = db.all_rows(
+        """SELECT p.name, p.relationship, count(mp.memory_id) AS mentions FROM people p
+           LEFT JOIN memory_people mp ON mp.person_id = p.id WHERE p.persona_id = ?
+           GROUP BY p.id ORDER BY mentions DESC, p.name LIMIT 60""",
+        (p["id"],),
+    )
+    out["my_relationship"] = ""
+    return out
+
+
+@router.get("/story/{token}/memories")
+def story_memories(token: str, q: Optional[str] = None):
+    p, _ = _resolve(token)
+    if q and q.strip():
+        return [core.public_memory(m) for m in core.search(p["id"], q, k=12)]
+    return [core.public_memory(m) for m in core.load_memories(p["id"])]
+
+
+@router.get("/story/{token}/recordings/{recording_id}/audio")
+def story_recording_audio(token: str, recording_id: str):
+    p, _ = _resolve(token)
+    r = db.one("SELECT * FROM recordings WHERE id = ? AND persona_id = ?", (recording_id, p["id"]))
+    if not r or not r["storage_key"]:
+        raise HTTPException(404, "No original audio for this memory")
+    return FileResponse(get_storage().local_path(r["storage_key"]), media_type=r["mime_type"] or "audio/mpeg",
+                        headers={"Cache-Control": "private, no-store"})
+
+
+@router.post("/story/{token}/conversations")
+def story_start_conversation(token: str):
+    p, u = _resolve(token)
+    cid = db.new_id()
+    db.insert("conversations", {"id": cid, "persona_id": p["id"], "user_id": u["id"], "started_at": db.now()})
+    text = core.engine.greeting(p, core.engine.memory_count(p["id"]))
+    db.insert("conversation_turns", {"id": db.new_id(), "conversation_id": cid, "role": "persona", "text": text,
+                                     "source_ids": "[]", "grounded": 0, "provider": "system", "created_at": db.now()})
+    return {"conversation_id": cid, "greeting": text, "voice_provider": p["voice_provider"]}
+
+
+def _own_conversation(token: str, cid: str) -> tuple[dict, dict, dict]:
+    p, u = _resolve(token)
+    c = db.one("SELECT * FROM conversations WHERE id = ?", (cid,))
+    if not c or c["persona_id"] != p["id"] or c["user_id"] != u["id"]:
+        raise HTTPException(404, "Conversation not found")
+    return c, p, u
+
+
+class StoryMessage(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+
+
+@router.post("/story/{token}/conversations/{cid}/messages")
+def story_message(token: str, cid: str, body: StoryMessage):
+    c, p, u = _own_conversation(token, cid)
+    if c["ended_at"]:
+        raise HTTPException(409, "This conversation has ended")
+
+    def guarded():
+        try:
+            yield from core.engine.respond(c, p, _visitor(p, u), "", body.text.strip())
+        except Exception as exc:  # noqa: BLE001
+            print(f"  [legacy] story-link respond failed: {exc}")
+            yield json.dumps({"type": "error", "message": "Something went wrong while answering. Please try again."}) + "\n"
+
+    return StreamingResponse(guarded(), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+
+
+@router.post("/story/{token}/conversations/{cid}/end")
+def story_end_conversation(token: str, cid: str):
+    _own_conversation(token, cid)
+    db.execute("UPDATE conversations SET ended_at = ? WHERE id = ? AND ended_at IS NULL", (db.now(), cid))
+    return {"ok": True}
+
+
+@router.get("/story/{token}/conversations")
+def story_conversations(token: str):
+    p, u = _resolve(token)
+    return db.all_rows(
+        """SELECT c.id, c.started_at, c.ended_at, count(t.id) AS turns,
+                  (SELECT text FROM conversation_turns WHERE conversation_id = c.id AND role = 'user'
+                   ORDER BY created_at LIMIT 1) AS first_question
+           FROM conversations c LEFT JOIN conversation_turns t ON t.conversation_id = c.id
+           WHERE c.persona_id = ? AND c.user_id = ? GROUP BY c.id ORDER BY c.started_at DESC LIMIT 50""",
+        (p["id"], u["id"]),
+    )
+
+
+@router.get("/story/{token}/conversations/{cid}")
+def story_conversation(token: str, cid: str):
+    c, _, _ = _own_conversation(token, cid)
+    turns = db.all_rows(
+        f"""SELECT id, role, text, source_ids, grounded, provider, created_at FROM conversation_turns
+            WHERE conversation_id = ? ORDER BY created_at, {db.order_tiebreak()}""",
+        (cid,),
+    )
+    for t in turns:
+        t["source_ids"] = db.jload(t["source_ids"], [])
+    return {**c, "turns": turns}
+
+
+@router.post("/story/{token}/speak")
+def story_speak(token: str, body: StoryMessage):
+    p, _ = _resolve(token)
+    provider = core.voices.get_voice(p["voice_provider"])
+    if provider.client_side:
+        raise HTTPException(400, "This persona uses the browser voice")
+    try:
+        audio, mime = provider.synthesize(body.text, db.jload(p["voice_config"], {}))
+    except ProviderError as exc:
+        raise HTTPException(502, str(exc))
+    return Response(audio, media_type=mime, headers={"X-AI-Generated": "true", "Cache-Control": "no-store"})

@@ -5,6 +5,7 @@ calls that need a real model are monkeypatched where a test needs their output.
 """
 from __future__ import annotations
 
+import json
 import time
 
 import pytest
@@ -319,3 +320,36 @@ def test_story_link_sharing_chapters_and_past_conversations(client):
     assert len(client.get(f"/api/legacy/story/{token}/sessions").json()) == 1
     client.delete(f"/api/legacy/personas/{pid}/story-link", headers=h)
     assert client.get(f"/api/legacy/story/{token}/sessions").status_code == 404
+
+
+def test_story_link_is_a_full_legacy_memories_and_conversation(client):
+    h, pid = setup_persona(client, passed=None)
+    r = client.post(f"/api/legacy/personas/{pid}/recordings", data={"title": "Childhood", "transcript": STORY}, headers=h)
+    wait_status(client, h, r.json()["id"], {"ready"})
+    token = client.post(f"/api/legacy/personas/{pid}/story-link", headers=h).json()["token"]
+    base = f"/api/legacy/story/{token}"
+
+    p = client.get(f"{base}/persona").json()
+    assert p["role"] == "listener" and p["counts"]["memories"] > 0 and "consents" not in p
+    mems = client.get(f"{base}/memories").json()
+    assert mems and client.get(f"{base}/memories", params={"q": "jalebis Godavari"}).json()
+    assert client.get(f"{base}/recordings/{r.json()['id']}/audio").status_code == 404  # text upload: no audio
+
+    conv = client.post(f"{base}/conversations").json()
+    assert "AI recreation" in conv["greeting"]
+    res = client.post(f"{base}/conversations/{conv['conversation_id']}/messages", json={"text": "Tell me about the jalebis"})
+    events = [json.loads(l) for l in res.text.splitlines() if l.strip()]
+    assert events[0]["type"] == "meta" and events[-1]["type"] == "done"
+    assert "".join(e["text"] for e in events if e["type"] == "delta")
+    hist = client.get(f"{base}/conversations").json()
+    assert len(hist) == 1 and hist[0]["first_question"] == "Tell me about the jalebis"
+    assert len(client.get(f"{base}/conversations/{conv['conversation_id']}").json()["turns"]) == 3
+    client.post(f"{base}/conversations/{conv['conversation_id']}/end")
+    assert client.post(f"{base}/conversations/{conv['conversation_id']}/messages", json={"text": "hi"}).status_code == 409
+
+    # The owner's own conversations stay private from the link, and vice versa.
+    own = client.post(f"/api/legacy/personas/{pid}/conversations", headers=h).json()["conversation_id"]
+    assert client.get(f"{base}/conversations/{own}").status_code == 404
+    assert client.get(f"/api/legacy/conversations/{conv['conversation_id']}", headers=h).status_code == 404
+    client.delete(f"/api/legacy/personas/{pid}/story-link", headers=h)
+    assert client.get(f"{base}/memories").status_code == 404
