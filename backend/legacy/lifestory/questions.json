@@ -1,0 +1,891 @@
+{
+ "sections": {
+  "1": "Early Life & Family Foundations",
+  "2": "Education, Career & Professional Journey",
+  "3": "Personal Life, Relationships & Character",
+  "4": "Major Turning Points & Defining Moments",
+  "5": "Wisdom, Legacy & Future Generations"
+ },
+ "questions": [
+  {
+   "id": 1,
+   "section": 1,
+   "skeleton": "Where and when were you born, and what was the world like at that moment?",
+   "weight": "low",
+   "tags": [
+    "origins",
+    "birthplace",
+    "era"
+   ]
+  },
+  {
+   "id": 2,
+   "section": 1,
+   "skeleton": "Describe your parents as people rather than as roles — who were they, really?",
+   "weight": "medium",
+   "tags": [
+    "parents",
+    "family",
+    "character"
+   ]
+  },
+  {
+   "id": 3,
+   "section": 1,
+   "skeleton": "Tell me about your grandparents — what world did they come from, and what did they bring into yours?",
+   "weight": "low",
+   "tags": [
+    "grandparents",
+    "heritage",
+    "family"
+   ]
+  },
+  {
+   "id": 4,
+   "section": 1,
+   "skeleton": "Paint me a picture of the home you grew up in — not the address, but what it felt like to be inside it.",
+   "weight": "low",
+   "tags": [
+    "home",
+    "childhood",
+    "atmosphere"
+   ]
+  },
+  {
+   "id": 5,
+   "section": 1,
+   "skeleton": "What was money like in your childhood home — was it scarce, abundant, or simply not discussed?",
+   "weight": "medium",
+   "tags": [
+    "finances",
+    "class",
+    "childhood"
+   ]
+  },
+  {
+   "id": 6,
+   "section": 1,
+   "skeleton": "Who held authority in your family, and how did they exercise it?",
+   "weight": "medium",
+   "tags": [
+    "authority",
+    "family dynamics",
+    "parents"
+   ]
+  },
+  {
+   "id": 7,
+   "section": 1,
+   "skeleton": "Tell me about your earliest years of schooling — what do you remember about learning to learn?",
+   "weight": "low",
+   "tags": [
+    "school",
+    "education",
+    "childhood"
+   ]
+  },
+  {
+   "id": 8,
+   "section": 1,
+   "skeleton": "Who was your closest childhood friend, and what did that friendship teach you?",
+   "weight": "low",
+   "tags": [
+    "friendship",
+    "childhood",
+    "relationships"
+   ]
+  },
+  {
+   "id": 9,
+   "section": 1,
+   "skeleton": "Give me a single ordinary moment from your childhood — a day, a meal, a sound — that stays with you.",
+   "weight": "low",
+   "tags": [
+    "memory",
+    "childhood",
+    "scene"
+   ]
+  },
+  {
+   "id": 10,
+   "section": 1,
+   "skeleton": "What did you dream of becoming when you were young, before the world told you what was realistic?",
+   "weight": "low",
+   "tags": [
+    "dreams",
+    "ambition",
+    "childhood"
+   ]
+  },
+  {
+   "id": 11,
+   "section": 1,
+   "skeleton": "What were the unspoken rules in your family — the things everyone knew but no one said aloud?",
+   "weight": "medium",
+   "tags": [
+    "family culture",
+    "norms",
+    "dynamics"
+   ]
+  },
+  {
+   "id": 12,
+   "section": 1,
+   "skeleton": "What was the first real hardship you remember — the first time life felt genuinely difficult?",
+   "weight": "medium",
+   "tags": [
+    "hardship",
+    "adversity",
+    "childhood"
+   ]
+  },
+  {
+   "id": 13,
+   "section": 1,
+   "skeleton": "Tell me about your siblings — or what it was like to grow up without them.",
+   "weight": "low",
+   "tags": [
+    "siblings",
+    "family",
+    "relationships"
+   ]
+  },
+  {
+   "id": 14,
+   "section": 1,
+   "skeleton": "What did your neighborhood or community look like — who were the people around you beyond your family?",
+   "weight": "low",
+   "tags": [
+    "community",
+    "neighborhood",
+    "childhood"
+   ]
+  },
+  {
+   "id": 15,
+   "section": 1,
+   "skeleton": "Was there a book, a film, or a story that grabbed you as a child and never quite let go?",
+   "weight": "low",
+   "tags": [
+    "culture",
+    "influences",
+    "childhood"
+   ]
+  },
+  {
+   "id": 16,
+   "section": 1,
+   "skeleton": "Looking back, what did your childhood quietly teach you about yourself — something you only understood much later?",
+   "weight": "medium",
+   "tags": [
+    "reflection",
+    "character",
+    "childhood lessons"
+   ]
+  },
+  {
+   "id": 17,
+   "section": 2,
+   "skeleton": "When did ambition first arrive — the first moment you wanted something for yourself, not just what was expected?",
+   "weight": "medium",
+   "tags": [
+    "ambition",
+    "awakening",
+    "identity"
+   ]
+  },
+  {
+   "id": 18,
+   "section": 2,
+   "skeleton": "Tell me about your first real encounter with work — the first time you were responsible for something that mattered.",
+   "weight": "low",
+   "tags": [
+    "first job",
+    "work",
+    "responsibility"
+   ]
+  },
+  {
+   "id": 19,
+   "section": 2,
+   "skeleton": "How did you end up in the field or path you chose — was it deliberate, accidental, or something in between?",
+   "weight": "medium",
+   "tags": [
+    "career path",
+    "vocation",
+    "choice"
+   ]
+  },
+  {
+   "id": 20,
+   "section": 2,
+   "skeleton": "Tell me about your most important teacher, mentor, or guide — someone who changed the way you understood what you were doing.",
+   "weight": "medium",
+   "tags": [
+    "mentor",
+    "influence",
+    "learning"
+   ]
+  },
+  {
+   "id": 21,
+   "section": 2,
+   "skeleton": "What was your first significant professional success — the moment you thought: this might actually work?",
+   "weight": "medium",
+   "tags": [
+    "success",
+    "milestone",
+    "career"
+   ]
+  },
+  {
+   "id": 22,
+   "section": 2,
+   "skeleton": "Tell me about a professional failure that genuinely stung — what happened, and what did you do with it?",
+   "weight": "high",
+   "tags": [
+    "failure",
+    "resilience",
+    "career"
+   ]
+  },
+  {
+   "id": 23,
+   "section": 2,
+   "skeleton": "Describe the hardest decision you ever had to make in your professional life — the one where you genuinely did not know the right answer.",
+   "weight": "high",
+   "tags": [
+    "hard decision",
+    "career",
+    "ethics"
+   ]
+  },
+  {
+   "id": 24,
+   "section": 2,
+   "skeleton": "Was there a moment when the thing you were working toward changed — when the goal shifted mid-journey?",
+   "weight": "medium",
+   "tags": [
+    "pivot",
+    "purpose",
+    "career evolution"
+   ]
+  },
+  {
+   "id": 25,
+   "section": 2,
+   "skeleton": "Tell me about the people you built things with — the colleagues or collaborators who mattered most.",
+   "weight": "medium",
+   "tags": [
+    "collaboration",
+    "team",
+    "relationships"
+   ]
+  },
+  {
+   "id": 26,
+   "section": 2,
+   "skeleton": "Was there a period when work consumed everything — and what did you gain and lose during that time?",
+   "weight": "high",
+   "tags": [
+    "work-life",
+    "obsession",
+    "sacrifice"
+   ]
+  },
+  {
+   "id": 27,
+   "section": 2,
+   "skeleton": "What did your profession teach you about human nature — things you could not have learned any other way?",
+   "weight": "medium",
+   "tags": [
+    "wisdom",
+    "profession",
+    "human nature"
+   ]
+  },
+  {
+   "id": 28,
+   "section": 2,
+   "skeleton": "Tell me about a rivalry or a difficult professional relationship — someone who pushed you, challenged you, or got in your way.",
+   "weight": "medium",
+   "tags": [
+    "rivalry",
+    "conflict",
+    "professional relationships"
+   ]
+  },
+  {
+   "id": 29,
+   "section": 2,
+   "skeleton": "What did you get wrong about your field early on — a belief or assumption you had to completely unlearn?",
+   "weight": "medium",
+   "tags": [
+    "growth",
+    "unlearning",
+    "career"
+   ]
+  },
+  {
+   "id": 30,
+   "section": 2,
+   "skeleton": "If you could go back to the beginning of your professional life and give yourself one piece of advice, what would it be?",
+   "weight": "medium",
+   "tags": [
+    "advice",
+    "reflection",
+    "career"
+   ]
+  },
+  {
+   "id": 31,
+   "section": 2,
+   "skeleton": "How did the world of your profession change during your time in it — and how did you change with it?",
+   "weight": "medium",
+   "tags": [
+    "change",
+    "adaptation",
+    "era"
+   ]
+  },
+  {
+   "id": 32,
+   "section": 2,
+   "skeleton": "What are you most proud of in your professional life — not the accolades, but the actual work?",
+   "weight": "medium",
+   "tags": [
+    "pride",
+    "legacy",
+    "career"
+   ]
+  },
+  {
+   "id": 33,
+   "section": 3,
+   "skeleton": "Tell me about the friendship that has lasted longest — what has kept it alive?",
+   "weight": "low",
+   "tags": [
+    "friendship",
+    "loyalty",
+    "relationships"
+   ]
+  },
+  {
+   "id": 34,
+   "section": 3,
+   "skeleton": "How did love enter your life — tell me about the first time someone truly mattered to you in that way.",
+   "weight": "medium",
+   "tags": [
+    "love",
+    "romance",
+    "relationships"
+   ]
+  },
+  {
+   "id": 35,
+   "section": 3,
+   "skeleton": "Tell me about your partnership or marriage — what has it asked of you that you did not expect?",
+   "weight": "high",
+   "tags": [
+    "marriage",
+    "partnership",
+    "intimacy"
+   ]
+  },
+  {
+   "id": 36,
+   "section": 3,
+   "skeleton": "If you have children, tell me what parenthood changed about you — not the obvious things, the subtle ones.",
+   "weight": "high",
+   "tags": [
+    "parenthood",
+    "children",
+    "change"
+   ]
+  },
+  {
+   "id": 37,
+   "section": 3,
+   "skeleton": "What does a typical quiet day in your life look like — not the big moments, the ordinary rhythm?",
+   "weight": "low",
+   "tags": [
+    "daily life",
+    "rhythm",
+    "habits"
+   ]
+  },
+  {
+   "id": 38,
+   "section": 3,
+   "skeleton": "What do you do when you need to restore yourself — what pulls you back from the edge of depletion?",
+   "weight": "low",
+   "tags": [
+    "restoration",
+    "self-care",
+    "habits"
+   ]
+  },
+  {
+   "id": 39,
+   "section": 3,
+   "skeleton": "What do you believe — about what life is for, about what happens after, about what holds everything together?",
+   "weight": "high",
+   "tags": [
+    "belief",
+    "philosophy",
+    "meaning"
+   ]
+  },
+  {
+   "id": 40,
+   "section": 3,
+   "skeleton": "Tell me about a quality in yourself that has been both your greatest strength and your most persistent weakness.",
+   "weight": "high",
+   "tags": [
+    "character",
+    "self-knowledge",
+    "duality"
+   ]
+  },
+  {
+   "id": 41,
+   "section": 3,
+   "skeleton": "What private struggle have you carried that most people in your life do not know about?",
+   "weight": "high",
+   "tags": [
+    "private life",
+    "struggle",
+    "vulnerability"
+   ]
+  },
+  {
+   "id": 42,
+   "section": 3,
+   "skeleton": "Tell me about a loss — a death, a relationship, an era — that marked you permanently.",
+   "weight": "high",
+   "tags": [
+    "grief",
+    "loss",
+    "change"
+   ]
+  },
+  {
+   "id": 43,
+   "section": 3,
+   "skeleton": "How do you spend time alone, and what does solitude mean to you?",
+   "weight": "medium",
+   "tags": [
+    "solitude",
+    "interiority",
+    "self"
+   ]
+  },
+  {
+   "id": 44,
+   "section": 3,
+   "skeleton": "Who in your life has known you most completely — and what did it feel like to be that known?",
+   "weight": "high",
+   "tags": [
+    "intimacy",
+    "being known",
+    "relationships"
+   ]
+  },
+  {
+   "id": 45,
+   "section": 3,
+   "skeleton": "Is there a relationship in your life that is unresolved — something that still sits in the back of your mind?",
+   "weight": "high",
+   "tags": [
+    "unresolved",
+    "relationships",
+    "regret"
+   ]
+  },
+  {
+   "id": 46,
+   "section": 3,
+   "skeleton": "What has anger taught you — a moment when you lost your temper and what came after?",
+   "weight": "medium",
+   "tags": [
+    "anger",
+    "emotion",
+    "self-knowledge"
+   ]
+  },
+  {
+   "id": 47,
+   "section": 3,
+   "skeleton": "What does generosity mean to you in practice — not in principle, but in how you actually live it?",
+   "weight": "medium",
+   "tags": [
+    "generosity",
+    "values",
+    "character"
+   ]
+  },
+  {
+   "id": 48,
+   "section": 3,
+   "skeleton": "How have you changed as a person over the course of your life — who are you now that you were not at thirty?",
+   "weight": "medium",
+   "tags": [
+    "change",
+    "growth",
+    "identity"
+   ]
+  },
+  {
+   "id": 49,
+   "section": 4,
+   "skeleton": "If your life has a single before-and-after moment — a day that divided everything into what came before and what came after — what is it?",
+   "weight": "high",
+   "tags": [
+    "turning point",
+    "before-after",
+    "defining moment"
+   ]
+  },
+  {
+   "id": 50,
+   "section": 4,
+   "skeleton": "What is the greatest success of your life — not what the world says, but what you feel it to be?",
+   "weight": "medium",
+   "tags": [
+    "success",
+    "achievement",
+    "pride"
+   ]
+  },
+  {
+   "id": 51,
+   "section": 4,
+   "skeleton": "What is the most consequential failure you have lived through — and how did you get to the other side of it?",
+   "weight": "high",
+   "tags": [
+    "failure",
+    "consequence",
+    "recovery"
+   ]
+  },
+  {
+   "id": 52,
+   "section": 4,
+   "skeleton": "Tell me about a crisis — a moment when the ground gave way and you did not know if things would be okay.",
+   "weight": "high",
+   "tags": [
+    "crisis",
+    "uncertainty",
+    "survival"
+   ]
+  },
+  {
+   "id": 53,
+   "section": 4,
+   "skeleton": "Was there a gamble you took — a decision where the outcome was genuinely uncertain and a lot was at stake?",
+   "weight": "high",
+   "tags": [
+    "risk",
+    "gamble",
+    "courage"
+   ]
+  },
+  {
+   "id": 54,
+   "section": 4,
+   "skeleton": "Tell me about a moment of genuine courage — a time when you did the harder thing, knowing it was harder.",
+   "weight": "high",
+   "tags": [
+    "courage",
+    "integrity",
+    "character"
+   ]
+  },
+  {
+   "id": 55,
+   "section": 4,
+   "skeleton": "What is your deepest regret — the thing you would do differently if you could?",
+   "weight": "high",
+   "tags": [
+    "regret",
+    "reflection",
+    "honesty"
+   ]
+  },
+  {
+   "id": 56,
+   "section": 4,
+   "skeleton": "Tell me about a recovery — a time when you were broken or depleted and found your way back.",
+   "weight": "high",
+   "tags": [
+    "recovery",
+    "resilience",
+    "renewal"
+   ]
+  },
+  {
+   "id": 57,
+   "section": 4,
+   "skeleton": "Was there a moment when you chose to walk away — from a job, a relationship, a belief — and what did that cost you?",
+   "weight": "high",
+   "tags": [
+    "leaving",
+    "cost",
+    "decision"
+   ]
+  },
+  {
+   "id": 58,
+   "section": 4,
+   "skeleton": "Tell me about a moment of real joy — not happiness, but the kind of feeling that makes you understand what life is for.",
+   "weight": "medium",
+   "tags": [
+    "joy",
+    "transcendence",
+    "peak moments"
+   ]
+  },
+  {
+   "id": 59,
+   "section": 4,
+   "skeleton": "Was there a moment when someone believed in you more than you believed in yourself — and what did that do for you?",
+   "weight": "medium",
+   "tags": [
+    "belief",
+    "encouragement",
+    "mentorship"
+   ]
+  },
+  {
+   "id": 60,
+   "section": 4,
+   "skeleton": "Tell me about an encounter with someone unexpected — a stranger, a brief meeting — that stayed with you.",
+   "weight": "medium",
+   "tags": [
+    "encounter",
+    "connection",
+    "serendipity"
+   ]
+  },
+  {
+   "id": 61,
+   "section": 4,
+   "skeleton": "Was there a moment when the world changed around you — an event in history or culture that altered the course of your life?",
+   "weight": "medium",
+   "tags": [
+    "history",
+    "context",
+    "change"
+   ]
+  },
+  {
+   "id": 62,
+   "section": 4,
+   "skeleton": "Tell me about a moment of real doubt — when you genuinely questioned whether the path you were on was the right one.",
+   "weight": "high",
+   "tags": [
+    "doubt",
+    "questioning",
+    "identity crisis"
+   ]
+  },
+  {
+   "id": 63,
+   "section": 4,
+   "skeleton": "What is the quiet shift — not a dramatic event, but a slow, internal change — that you consider the most transformative of your life?",
+   "weight": "high",
+   "tags": [
+    "internal change",
+    "slow transformation",
+    "growth"
+   ]
+  },
+  {
+   "id": 64,
+   "section": 4,
+   "skeleton": "If you had made one different choice at a critical moment, where do you think your life would have gone?",
+   "weight": "medium",
+   "tags": [
+    "counterfactual",
+    "reflection",
+    "choice"
+   ]
+  },
+  {
+   "id": 65,
+   "section": 5,
+   "skeleton": "How would you distill your life philosophy into a few sentences — the principles that have actually governed how you live?",
+   "weight": "medium",
+   "tags": [
+    "philosophy",
+    "principles",
+    "wisdom"
+   ]
+  },
+  {
+   "id": 66,
+   "section": 5,
+   "skeleton": "What belief have you held for a long time that you know is contested — something you believe despite knowing that reasonable people disagree?",
+   "weight": "medium",
+   "tags": [
+    "contested belief",
+    "conviction",
+    "values"
+   ]
+  },
+  {
+   "id": 67,
+   "section": 5,
+   "skeleton": "What would you tell the generation that will come after yours — the things they need to hear that they are unlikely to be told?",
+   "weight": "medium",
+   "tags": [
+    "advice",
+    "future generations",
+    "wisdom"
+   ]
+  },
+  {
+   "id": 68,
+   "section": 5,
+   "skeleton": "How do you imagine being remembered — not how you hope, but how you think it will actually go?",
+   "weight": "high",
+   "tags": [
+    "legacy",
+    "memory",
+    "self-knowledge"
+   ]
+  },
+  {
+   "id": 69,
+   "section": 5,
+   "skeleton": "What is still unfinished — the ambition or the project or the relationship that you have not yet made whole?",
+   "weight": "medium",
+   "tags": [
+    "unfinished",
+    "ambition",
+    "future"
+   ]
+  },
+  {
+   "id": 70,
+   "section": 5,
+   "skeleton": "What have you changed your mind about significantly over the course of your life?",
+   "weight": "medium",
+   "tags": [
+    "changed mind",
+    "growth",
+    "evolution"
+   ]
+  },
+  {
+   "id": 71,
+   "section": 5,
+   "skeleton": "What do you understand about life now that you could not have understood at forty?",
+   "weight": "medium",
+   "tags": [
+    "wisdom",
+    "age",
+    "perspective"
+   ]
+  },
+  {
+   "id": 72,
+   "section": 5,
+   "skeleton": "What is the most important thing you have ever received — not materially, but in terms of what someone gave you that shaped who you became?",
+   "weight": "medium",
+   "tags": [
+    "gift",
+    "gratitude",
+    "influence"
+   ]
+  },
+  {
+   "id": 73,
+   "section": 5,
+   "skeleton": "What is the most important thing you have ever given?",
+   "weight": "medium",
+   "tags": [
+    "giving",
+    "legacy",
+    "impact"
+   ]
+  },
+  {
+   "id": 74,
+   "section": 5,
+   "skeleton": "How has your relationship with time changed as you have gotten older?",
+   "weight": "medium",
+   "tags": [
+    "time",
+    "mortality",
+    "perspective"
+   ]
+  },
+  {
+   "id": 75,
+   "section": 5,
+   "skeleton": "What question have you been asking your whole life that you still do not have an answer to?",
+   "weight": "high",
+   "tags": [
+    "unanswered question",
+    "mystery",
+    "life question"
+   ]
+  },
+  {
+   "id": 76,
+   "section": 5,
+   "skeleton": "What do you think is genuinely worth suffering for — what is worth the cost?",
+   "weight": "high",
+   "tags": [
+    "suffering",
+    "meaning",
+    "values"
+   ]
+  },
+  {
+   "id": 77,
+   "section": 5,
+   "skeleton": "Who or what do you feel you still owe something to?",
+   "weight": "high",
+   "tags": [
+    "debt",
+    "obligation",
+    "relationships"
+   ]
+  },
+  {
+   "id": 78,
+   "section": 5,
+   "skeleton": "What do you want people who love you to know — things you may have never said directly?",
+   "weight": "high",
+   "tags": [
+    "love",
+    "message",
+    "intimacy"
+   ]
+  },
+  {
+   "id": 79,
+   "section": 5,
+   "skeleton": "What would be lost if your story were never told?",
+   "weight": "high",
+   "tags": [
+    "story",
+    "legacy",
+    "value"
+   ]
+  },
+  {
+   "id": 80,
+   "section": 5,
+   "skeleton": "If you could leave one sentence behind — one closing thought that stands for your entire life — what would it be?",
+   "weight": "high",
+   "tags": [
+    "closing thought",
+    "legacy",
+    "summation"
+   ]
+  }
+ ]
+}

@@ -97,3 +97,22 @@ The SQL is written SQLite-style; `db.py` rewrites it for Postgres (`?` → `%s`,
 - **Browser speech recognition** sends audio to Google (Chrome) or Apple (Safari). The "Whisper (server)" mode avoids this.
 - **Speaking to interrupt** only works reliably with headphones, because the browser voice isn't echo-cancelled.
 - **Free tiers:** Groq's free tier caps tokens per minute, so long chats can briefly fall back to Gemini, and failing that to quotes.
+
+## Life Story (merged from Bio-per3)
+
+Each persona has a **Life story** tab, ported from the Bio-per3 biographical interviewer (`backend/legacy/lifestory/`):
+
+- **Interview:** an AI interviewer works through Bio-per3's 80-question coverage map (5 chapters of a life). It asks one question at a time and goes deeper before moving on. The person can answer themselves (with a short onboarding first), or a family member can share memories of them (the default once the person has passed). Answers can be typed or dictated (server Whisper).
+- **Linked with memories, both ways:**
+  - Every family recording is analysed after ingestion. It marks coverage questions and opens follow-up threads, so the interviewer doesn't re-ask what the family already recorded.
+  - "End & save to memories" saves the session as a recording, so its answers become memories for the voice conversation.
+- **Biography:** a two-pass writer (outline, then full prose) drafts from the interview transcripts and family memories. Family accounts are attributed. It runs in the background; the tab polls until it's done.
+- **Interviewer notes:** per-persona background and reference material. These replace Bio-per3's one-subject-per-deployment `subject.config.js`.
+
+**Private link (one link for one person, like Bio-per3):** the persona's owner opens Life story → Interviewer notes → *Create link*. The link (`/#/story/<token>`) opens that person's own page (portrait, timeline, facts and the interview) with no account. It can reach only their interview, as them, and their finished biography; it can't see family memories, recordings or members. Only the token's hash is stored, so the link is shown once. *Make a new link* revokes the old one but keeps the conversation history; *Turn off link* revokes it. Sessions from the link are saved to memories like any other.
+
+Import the original Bio-per3 subject (the owner must already have an account):
+```bash
+cd backend && .venv/bin/python -m legacy.seed_subject --owner you@example.com   # legacy/subjects/jiwarajka.json
+```
+⚠ Like `seed_demo`, this loads `.env`, so it writes to whatever `DATABASE_URL` points at.

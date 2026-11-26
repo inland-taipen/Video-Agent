@@ -11,9 +11,14 @@ import { PipelineState, StoryboardFrame, StylePreset, GenerationMode } from './t
 
 
 const LegacyApp = lazy(() => import('./legacy/LegacyApp'));
+const StoryPage = lazy(() => import('./legacy/story/StoryPage'));
 
-type Section = 'stories' | 'legacy';
-const sectionFromHash = (): Section => (window.location.hash.startsWith('#/legacy') ? 'legacy' : 'stories');
+type Section = 'stories' | 'legacy' | 'story';
+const sectionFromHash = (): Section => {
+  const h = window.location.hash;
+  if (h.startsWith('#/story/')) return 'story';
+  return h.startsWith('#/legacy') ? 'legacy' : 'stories';
+};
 
 const IDLE_STATE: PipelineState = { stage: 'idle', message: '', progress: 0 };
 
@@ -94,6 +99,15 @@ export default function App() {
   );
 
   const hasFrames = frames.length > 0;
+
+  // A subject's private story link: their own page only, without the app chrome.
+  if (section === 'story') {
+    return (
+      <Suspense fallback={<div className="app-main">Loading…</div>}>
+        <StoryPage token={decodeURIComponent(window.location.hash.slice('#/story/'.length).split(/[/?]/)[0])} />
+      </Suspense>
+    );
+  }
 
   return (
     <div className="app">

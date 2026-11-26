@@ -41,9 +41,13 @@ def client(tmp_path, monkeypatch):
             conn.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public")
         db.close_pools()
     storage._backend = None  # pick up the temp dir
+    from legacy.lifestory.routes import router as lifestory_router
     from legacy.routes import router
     app = FastAPI()
     app.include_router(router)
+    app.include_router(lifestory_router)
+    from legacy.lifestory.link import router as story_link_router
+    app.include_router(story_link_router)
     with TestClient(app) as c:
         yield c
     storage._backend = None

@@ -1219,6 +1219,12 @@ async def transcribe(file: UploadFile = File(...)):
 from legacy.routes import router as legacy_router  # noqa: E402
 
 app.include_router(legacy_router)
+from legacy.lifestory.routes import router as lifestory_router  # noqa: E402
+
+app.include_router(lifestory_router)
+from legacy.lifestory.link import router as story_link_router  # noqa: E402
+
+app.include_router(story_link_router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

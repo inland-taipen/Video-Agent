@@ -370,4 +370,16 @@ def process_recording(recording_id: str) -> None:
     detail = f"{count} memories extracted"
     if provider == "mock":
         detail += " (offline fallback — AI extraction unavailable; press Retry later for better results)"
+    # Life Story: map this recording onto the interview's coverage map + follow-up threads
+    # (before "ready", so the finished status already says what it added).
+    from .lifestory.agents import analyze_recording  # lazy: lifestory imports this module
+
+    _status(recording_id, "embedding", "Linking it to the life story…")
+    try:
+        found = analyze_recording(recording_id)
+    except Exception as exc:  # noqa: BLE001 — never fail a recording over this
+        print(f"  [legacy] life-story analysis failed for {recording_id}: {exc}")
+        found = None
+    if found and found["questions_marked"]:
+        detail += f" · touches {found['questions_marked']} life-story questions"
     _status(recording_id, "ready", detail, extraction_source=provider)

@@ -8,11 +8,12 @@ import { ErrorNote, Portrait, Spinner } from './common';
 import { AboutTab } from './tabs/AboutTab';
 import { FamilyTab } from './tabs/FamilyTab';
 import { HistoryTab } from './tabs/HistoryTab';
+import { LifeStoryTab } from './tabs/LifeStoryTab';
 import { MemoriesTab } from './tabs/MemoriesTab';
 import { RecordingsTab } from './tabs/RecordingsTab';
 
 const TABS: [string, string][] = [
-  ['memories', 'Memories'], ['recordings', 'Recordings'], ['family', 'Family access'],
+  ['memories', 'Memories'], ['recordings', 'Recordings'], ['lifestory', 'Life story'], ['family', 'Family access'],
   ['history', 'Past conversations'], ['about', 'Consent & voice'],
 ];
 
@@ -100,6 +101,7 @@ export function PersonaProfile({ id, tab, inCall, caps, user }: Props) {
       <div className="lg-tabpanel" role="tabpanel">
         {tab === 'memories' && <MemoriesTab persona={p} />}
         {tab === 'recordings' && <RecordingsTab persona={p} caps={caps} onChange={load} />}
+        {tab === 'lifestory' && <LifeStoryTab persona={p} />}
         {tab === 'family' && <FamilyTab persona={p} user={user} />}
         {tab === 'history' && <HistoryTab persona={p} />}
         {tab === 'about' && <AboutTab persona={p} caps={caps} />}

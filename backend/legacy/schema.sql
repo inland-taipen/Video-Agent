@@ -154,3 +154,91 @@ CREATE TABLE IF NOT EXISTS conversation_turns (
     created_at      TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_turns_conversation ON conversation_turns(conversation_id);
+
+-- ── Life Story (ported from Bio-per3) ───────────────────────────────────────
+-- A guided biographical interview over an 80-question coverage map, plus a
+-- biography writer. Family-added recordings also feed coverage + threads, and
+-- each interview session is saved back as a recording so it becomes memories.
+
+-- Per-persona interviewer context (what Bio-per3 kept in subject.config.js).
+CREATE TABLE IF NOT EXISTS life_story (
+    persona_id          TEXT PRIMARY KEY REFERENCES personas(id) ON DELETE CASCADE,
+    background          TEXT NOT NULL DEFAULT '',   -- known facts: never ask what is already known
+    reference_material  TEXT NOT NULL DEFAULT '',   -- public record: where the rich stories live
+    profile             TEXT NOT NULL DEFAULT '{}', -- json, built up by the interviewer
+    onboarding_complete INTEGER NOT NULL DEFAULT 0,
+    page                TEXT NOT NULL DEFAULT '{}', -- json: private-link page (pull quote, timeline, facts)
+    updated_at          TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS interview_sessions (
+    id             TEXT PRIMARY KEY,
+    persona_id     TEXT NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+    user_id        TEXT NOT NULL REFERENCES users(id),
+    speaker        TEXT NOT NULL DEFAULT 'subject' CHECK (speaker IN ('subject', 'family')),
+    session_number INTEGER NOT NULL,
+    last_question  INTEGER,
+    onboarding     INTEGER NOT NULL DEFAULT 0,
+    recording_id   TEXT REFERENCES recordings(id) ON DELETE SET NULL, -- set when saved as memories
+    started_at     TEXT NOT NULL,
+    ended_at       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_isessions_persona ON interview_sessions(persona_id);
+
+CREATE TABLE IF NOT EXISTS interview_turns (
+    id          TEXT PRIMARY KEY,
+    session_id  TEXT NOT NULL REFERENCES interview_sessions(id) ON DELETE CASCADE,
+    persona_id  TEXT NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+    role        TEXT NOT NULL CHECK (role IN ('agent', 'user')),
+    content     TEXT NOT NULL,
+    question_id INTEGER,
+    move_type   TEXT,
+    created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_iturns_session ON interview_turns(session_id);
+CREATE INDEX IF NOT EXISTS idx_iturns_persona ON interview_turns(persona_id);
+
+CREATE TABLE IF NOT EXISTS interview_coverage (
+    persona_id  TEXT NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+    question_id INTEGER NOT NULL,
+    status      TEXT NOT NULL CHECK (status IN ('partial', 'covered')),
+    source      TEXT NOT NULL DEFAULT 'interview',  -- interview | recording
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (persona_id, question_id)
+);
+
+CREATE TABLE IF NOT EXISTS interview_threads (
+    id          TEXT PRIMARY KEY,
+    persona_id  TEXT NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+    text        TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'explored', 'dismissed')),
+    sensitivity TEXT NOT NULL DEFAULT 'normal' CHECK (sensitivity IN ('normal', 'sensitive')),
+    recording_id TEXT REFERENCES recordings(id) ON DELETE SET NULL,  -- where it came from, if a recording
+    created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_threads_persona ON interview_threads(persona_id);
+
+CREATE TABLE IF NOT EXISTS biographies (
+    id            TEXT PRIMARY KEY,
+    persona_id    TEXT NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+    status        TEXT NOT NULL DEFAULT 'generating' CHECK (status IN ('generating', 'ready', 'failed')),
+    status_detail TEXT NOT NULL DEFAULT '',
+    content_md    TEXT NOT NULL DEFAULT '',
+    provider      TEXT,
+    generated_by TEXT REFERENCES users(id),
+    created_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_bios_persona ON biographies(persona_id);
+
+-- Private link: one secret URL that opens the subject's own interview page with no
+-- account (Bio-per3's one-link-per-person). Only the token's hash is stored; the
+-- owner sees the link once, and can regenerate (which revokes the old one) or revoke it.
+CREATE TABLE IF NOT EXISTS story_links (
+    token_hash   TEXT PRIMARY KEY,
+    persona_id   TEXT NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+    link_user_id TEXT NOT NULL REFERENCES users(id),   -- account the link answers as (cannot sign in)
+    created_by   TEXT NOT NULL REFERENCES users(id),
+    created_at   TEXT NOT NULL,
+    revoked_at   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_story_links_persona ON story_links(persona_id);
