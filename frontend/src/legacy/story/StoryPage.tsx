@@ -3,8 +3,8 @@
 // life-story interview on the right. No account — the token in the URL is the key, and it
 // only reaches this person's interview and finished biography.
 import React, { useEffect, useRef, useState } from 'react';
-import { BookOpen, Check, Mic, Send, Square, X } from 'lucide-react';
-import { InterviewSession, InterviewTurn, StoryPageData, storyApi } from '../api';
+import { BookOpen, Check, FileAudio, History, MessageCircle, Mic, PenLine, Send, Share2, Square, X } from 'lucide-react';
+import { InterviewSession, InterviewTurn, SharedItem, StoryPageData, storyApi } from '../api';
 import { ErrorNote, initials, Spinner } from '../components/common';
 import { Markdown, useDictation } from '../components/tabs/LifeStoryTab';
 import '../legacy.css';
@@ -15,6 +15,10 @@ export default function StoryPage({ token }: { token: string }) {
   const [session, setSession] = useState<InterviewSession | null>(null);
   const [turns, setTurns] = useState<InterviewTurn[]>([]);
   const [reading, setReading] = useState(false);
+  const [view, setView] = useState<'talk' | 'share' | 'past'>(() => {
+    const sub = window.location.hash.split('/')[3];  // #/story/<token>/share|past
+    return sub === 'share' || sub === 'past' ? sub : 'talk';
+  });
   const [done, setDone] = useState(false);
 
   const load = () => storyApi.page(token).then((d) => {
@@ -51,10 +55,31 @@ export default function StoryPage({ token }: { token: string }) {
           <span>{data.coverage.percent}% of the story told</span>
           <div className="lg-progress"><span style={{ width: `${(data.coverage.covered / data.coverage.total) * 100}%` }} /><span className="is-partial" style={{ width: `${(data.coverage.partial / data.coverage.total) * 100}%` }} /></div>
         </div>
+        {!!data.sections?.length && (
+          <ul className="st-chapters">
+            {data.sections.map((c) => (
+              <li key={c.name}>
+                <span>{c.name}</span>
+                <div className="lg-progress"><span style={{ width: `${(c.covered / c.total) * 100}%` }} /><span className="is-partial" style={{ width: `${(c.partial / c.total) * 100}%` }} /></div>
+              </li>
+            ))}
+          </ul>
+        )}
       </aside>
 
       <main className="st-main">
-        {reading && data.biography ? (
+        {!session && !reading && (
+          <nav className="st-nav" role="tablist">
+            {([['talk', 'Conversation', MessageCircle], ['share', 'Share something', Share2], ['past', 'Past conversations', History]] as const).map(([v, label, Icon]) => (
+              <button key={v} role="tab" aria-selected={view === v} className={`lg-chip ${view === v ? 'is-active' : ''}`} onClick={() => setView(v)}>
+                <Icon size={14} /> {label}
+              </button>
+            ))}
+          </nav>
+        )}
+        {!session && !reading && view === 'share' ? <Share token={token} firstName={data.name.split(' ')[0]} onShared={load} />
+        : !session && !reading && view === 'past' ? <Past token={token} firstName={data.name.split(' ')[0]} />
+        : reading && data.biography ? (
           <div className="lg-stack">
             <button className="lg-btn lg-btn--ghost lg-btn--sm st-back" onClick={() => setReading(false)}><X size={14} /> Close biography</button>
             <article className="lg-card lg-biography"><Markdown text={data.biography.content_md} /></article>
@@ -173,3 +198,192 @@ function Interview({ token, session, turns, setTurns, firstName, onEnded }: {
     </div>
   );
 }
+
+// ── Share something (Bio-per3's upload panel) ───────────────────────────────
+
+function Share({ token, firstName, onShared }: { token: string; firstName: string; onShared: () => void }) {
+  const [mode, setMode] = useState<'write' | 'record' | 'file'>('write');
+  const [title, setTitle] = useState('');
+  const [text, setText] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
+  const [items, setItems] = useState<SharedItem[] | null>(null);
+  const [formKey, setFormKey] = useState(0);
+
+  const refresh = () => storyApi.shared(token).then(setItems).catch(() => undefined);
+  useEffect(() => { refresh(); }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+  const processing = items?.some((i) => !['ready', 'failed', 'needs_transcript'].includes(i.status));
+  useEffect(() => {
+    if (!processing) return;
+    const t = window.setInterval(refresh, 4000);
+    return () => window.clearInterval(t);
+  }, [processing]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const f = new FormData();
+    if (title.trim()) f.append('title', title.trim());
+    if (mode === 'write') { if (!text.trim()) return; f.append('transcript', text.trim()); }
+    else { if (!file) return; f.append('file', file); }
+    setBusy(true); setError(''); setSent(false);
+    try {
+      await storyApi.share(token, f);
+      setText(''); setTitle(''); setFile(null); setSent(true); setFormKey((k) => k + 1);
+      refresh(); onShared();
+    } catch (err) { setError((err as Error).message); }
+    setBusy(false);
+  };
+
+  const modes = [['write', 'Write or paste', PenLine], ['record', 'Record a voice memo', Mic], ['file', 'Upload audio', FileAudio]] as const;
+  return (
+    <div className="lg-stack">
+      <form className="lg-card lg-form" onSubmit={submit} key={formKey}>
+        <h3>Share something</h3>
+        <p className="lg-muted lg-small">
+          A story you wrote down, notes, a chat you exported from WhatsApp, or a voice note. It becomes part of your story,
+          and the interviewer will ask you about it next time instead of starting from scratch.
+        </p>
+        <div className="lg-subtabs">
+          {modes.map(([m, label, Icon]) => (
+            <button type="button" key={m} className={`lg-chip ${mode === m ? 'is-active' : ''}`} onClick={() => { setMode(m); setFile(null); }}>
+              <Icon size={14} /> {label}
+            </button>
+          ))}
+        </div>
+        <label className="lg-field"><span>Title (optional)</span>
+          <input className="lg-input" value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. The day OMC lit its first village" />
+        </label>
+        {mode === 'write' && (
+          <label className="lg-field"><span>Your words</span>
+            <textarea rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write or paste here…" />
+          </label>
+        )}
+        {mode === 'record' && <MemoRecorder onRecorded={setFile} />}
+        {mode === 'file' && (
+          <label className="lg-field"><span>Audio file (MP3, M4A, WAV, WebM, OGG)</span>
+            <input type="file" accept="audio/*,video/mp4,video/webm" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+          </label>
+        )}
+        {sent && <div className="lg-alert lg-alert--ok">Thank you — received. It's being added to your story now.</div>}
+        <ErrorNote message={error} />
+        <div className="lg-actions">
+          <button className="lg-btn lg-btn--primary" disabled={busy || (mode === 'write' ? !text.trim() : !file)}>{busy ? <Spinner label="Sending…" /> : 'Share'}</button>
+        </div>
+      </form>
+
+      {!!items?.length && (
+        <div>
+          <h3 className="lg-small lg-muted">What you've shared</h3>
+          <ul className="lg-list">
+            {items.map((i) => (
+              <li key={i.id} className="lg-card lg-session">
+                <strong>{i.title}</strong>
+                <span className="lg-small lg-muted">{i.source_type === 'audio' ? 'Voice' : 'Written'} · {new Date(i.created_at).toLocaleDateString()}</span>
+                <SharedStatus item={i} firstName={firstName} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SharedStatus({ item, firstName }: { item: SharedItem; firstName: string }) {
+  if (item.status === 'ready') return <span className="lg-pill lg-pill--ok">Added · {item.memory_count} {item.memory_count === 1 ? 'memory' : 'memories'}</span>;
+  if (item.status === 'needs_transcript') return <span className="lg-pill lg-pill--muted" title={`The family will add the words for ${firstName}.`}>Received · family will add the words</span>;
+  if (item.status === 'failed') return <span className="lg-pill lg-pill--err" title={item.status_detail}>Couldn't process — the family can retry</span>;
+  return <span className="lg-pill lg-pill--warn"><Spinner /> Adding to your story…</span>;
+}
+
+function MemoRecorder({ onRecorded }: { onRecorded: (f: File | null) => void }) {
+  const [state, setState] = useState<'idle' | 'recording' | 'done'>('idle');
+  const [secs, setSecs] = useState(0);
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const rec = useRef<MediaRecorder | null>(null);
+  const chunks = useRef<Blob[]>([]);
+  const timer = useRef(0);
+
+  useEffect(() => () => {
+    window.clearInterval(timer.current);
+    rec.current?.stream.getTracks().forEach((t) => t.stop());
+    if (url) URL.revokeObjectURL(url);
+  }, [url]);
+
+  const start = async () => {
+    setError(''); onRecorded(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const r = new MediaRecorder(stream);
+      chunks.current = [];
+      r.ondataavailable = (e) => { if (e.data.size) chunks.current.push(e.data); };
+      r.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        window.clearInterval(timer.current);
+        const type = r.mimeType || 'audio/webm';
+        const blob = new Blob(chunks.current, { type });
+        const ext = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
+        onRecorded(new File([blob], `voice-memo.${ext}`, { type: type.split(';')[0] }));
+        setUrl(URL.createObjectURL(blob));
+        setState('done');
+      };
+      r.start(1000);
+      rec.current = r;
+      setSecs(0); setState('recording');
+      timer.current = window.setInterval(() => setSecs((x) => x + 1), 1000);
+    } catch {
+      setError('Microphone access was blocked. Allow it in the address bar and try again.');
+    }
+  };
+  const mmss = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  return (
+    <div className="lg-stack">
+      <div className="lg-actions">
+        {state === 'recording'
+          ? <button type="button" className="lg-btn lg-btn--ghost lg-btn--lg is-recording" onClick={() => rec.current?.stop()}><Square size={16} /> Stop · {mmss}</button>
+          : <button type="button" className="lg-btn lg-btn--ghost lg-btn--lg" onClick={start}><Mic size={18} /> {state === 'done' ? 'Record again' : 'Start recording'}</button>}
+      </div>
+      {url && state === 'done' && <audio controls src={url} />}
+      <ErrorNote message={error} />
+    </div>
+  );
+}
+
+// ── Past conversations ──────────────────────────────────────────────────────
+
+function Past({ token, firstName }: { token: string; firstName: string }) {
+  const [items, setItems] = useState<InterviewSession[] | null>(null);
+  const [error, setError] = useState('');
+  const [open, setOpen] = useState<string | null>(null);
+  useEffect(() => {
+    storyApi.pastSessions(token).then((x) => { setItems(x); setOpen(x[0]?.id || null); }).catch((e) => setError(e.message));
+  }, [token]);
+  if (error) return <ErrorNote message={error} />;
+  if (!items) return <Spinner label="Loading…" />;
+  if (!items.length) return <div className="lg-empty"><p>No finished conversations yet. When you press “Finish for today”, the conversation is kept here.</p></div>;
+  return (
+    <div className="lg-stack">
+      {items.map((s) => (
+        <details key={s.id} className="lg-card lg-details" open={open === s.id} onToggle={(e) => { if ((e.target as HTMLDetailsElement).open) setOpen(s.id); }}>
+          <summary>
+            <strong>Conversation {s.session_number}</strong>{' '}
+            <span className="lg-small lg-muted">· {new Date(s.started_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })} · {answersLabel((s.turns || []).filter((t) => t.role === 'user').length)}</span>
+          </summary>
+          <div className="lg-interview__log st-past">
+            {(s.turns || []).map((t) => (
+              <div key={t.id} className={`lg-iturn lg-iturn--${t.role}`}>
+                <span className="lg-turn__who">{t.role === 'agent' ? 'Interviewer' : firstName}</span>
+                {t.content.split(/\n{2,}/).map((p, i) => <p key={i}>{p}</p>)}
+              </div>
+            ))}
+          </div>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+function answersLabel(n: number) { return `${n} ${n === 1 ? 'answer' : 'answers'}`; }

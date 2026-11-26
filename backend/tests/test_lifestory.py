@@ -279,3 +279,43 @@ def test_private_story_link_opens_only_the_subjects_interview(client):
     client.delete(f"/api/legacy/personas/{pid}/story-link", headers=h)
     assert client.get(f"/api/legacy/story/{new}").status_code == 404
     assert client.get("/api/legacy/story/made-up-token").status_code == 404
+
+
+def test_story_link_sharing_chapters_and_past_conversations(client):
+    h, pid = setup_persona(client, passed=None)
+    token = client.post(f"/api/legacy/personas/{pid}/story-link", headers=h).json()["token"]
+
+    page = client.get(f"/api/legacy/story/{token}").json()
+    assert [s["total"] for s in page["sections"]] == [16] * 5 and page["sections"][0]["covered"] == 0
+
+    # Share a written note (title optional) and a voice memo.
+    r = client.post(f"/api/legacy/story/{token}/recordings", data={"transcript": STORY})
+    assert r.status_code == 200 and r.json()["title"].startswith("Written note from Ramesh")
+    memo = client.post(f"/api/legacy/story/{token}/recordings", data={"title": "Memo"},
+                       files={"file": ("memo.webm", b"\x1aE\xdf\xa3fake", "audio/webm")})
+    assert memo.status_code == 200 and memo.json()["source_type"] == "audio"
+    assert client.post(f"/api/legacy/story/{token}/recordings", data={}).status_code == 400
+    assert client.post(f"/api/legacy/story/{token}/recordings",
+                       files={"file": ("x.pdf", b"%PDF", "application/pdf")}).status_code == 400
+    rec = wait_status(client, h, r.json()["id"], {"ready"})
+    assert rec["speaker_mode"] == "transcript" and rec["memories"]  # his own words → memories
+
+    # A finished interview shows under past conversations, not under shared items.
+    s = client.post(f"/api/legacy/story/{token}/sessions").json()["session"]
+    client.post(f"/api/legacy/story/{token}/sessions/{s['id']}/turns", json={"text": "Born in Nashik."})
+    rid = client.post(f"/api/legacy/story/{token}/sessions/{s['id']}/end").json()["recording_id"]
+    wait_status(client, h, rid, {"ready"})
+    shared = client.get(f"/api/legacy/story/{token}/recordings").json()
+    assert {x["title"] for x in shared} == {r.json()["title"], "Memo"}
+    past = client.get(f"/api/legacy/story/{token}/sessions").json()
+    assert len(past) == 1 and past[0]["turns"][1]["content"] == "Born in Nashik."
+
+    # Family uploads and family interview sessions never show on his link.
+    client.post(f"/api/legacy/personas/{pid}/recordings", data={"title": "Family", "transcript": STORY}, headers=h)
+    assert len(client.get(f"/api/legacy/story/{token}/recordings").json()) == 2
+    fam = start(client, h, pid, speaker="family")["session"]["id"]
+    answer(client, h, fam, "He loved jalebis.")
+    client.post(f"/api/legacy/interview/sessions/{fam}/end", json={}, headers=h)
+    assert len(client.get(f"/api/legacy/story/{token}/sessions").json()) == 1
+    client.delete(f"/api/legacy/personas/{pid}/story-link", headers=h)
+    assert client.get(f"/api/legacy/story/{token}/sessions").status_code == 404

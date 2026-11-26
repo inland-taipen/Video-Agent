@@ -301,9 +301,15 @@ def add_recording(
 ):
     require_role(persona_id, user, "editor")
     _persona_or_404(persona_id)
+    return create_recording(persona_id, user["id"], title, speaker_mode, recorded_on, notes, transcript, file)
+
+
+def create_recording(persona_id: str, user_id: str, title: str, speaker_mode: str, recorded_on: Optional[str],
+                     notes: str, transcript: Optional[str], file: Optional[UploadFile]) -> dict:
+    """Store an uploaded recording or written story and queue it for processing (caller authorises)."""
     rid = db.new_id()
     row = {
-        "id": rid, "persona_id": persona_id, "uploaded_by": user["id"], "title": title.strip(),
+        "id": rid, "persona_id": persona_id, "uploaded_by": user_id, "title": title.strip(),
         "speaker_mode": speaker_mode, "recorded_on": recorded_on or None, "notes": notes.strip(),
         "created_at": db.now(), "status": "queued", "status_detail": "Waiting to be processed…",
     }

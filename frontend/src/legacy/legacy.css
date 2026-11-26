@@ -295,11 +295,17 @@
 .st-interview .lg-interview__log { max-height: calc(100vh - 340px); }
 .st-interview .lg-iturn p { font-size: 1.05rem; }
 .st-msg { min-height: 100vh; padding: 16px; }
+.st-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+.st-nav .lg-chip, .st-main .lg-subtabs .lg-chip { display: inline-flex; align-items: center; gap: 6px; }
+.st-chapters { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: .78rem; color: #cdb79e; }
+.st-chapters li { display: flex; flex-direction: column; gap: 4px; }
+.st-chapters .lg-progress { height: 5px; background: #4a3a2c; }
+.st-past { max-height: none; margin-top: 12px; }
 @media (max-width: 860px) {
   .st { grid-template-columns: 1fr; }
   .st-side { padding: 24px 16px; display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 12px 16px; }
   .st-portrait { width: 96px; font-size: 1.6rem; }
-  .st-quote, .st-timeline, .st-progress { grid-column: 1 / -1; }
+  .st-quote, .st-timeline, .st-progress, .st-chapters { grid-column: 1 / -1; }
   .st-timeline { display: none; }
   .st-main { padding: 24px 16px; }
 }

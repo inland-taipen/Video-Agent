@@ -260,7 +260,7 @@ export interface StoryPageData {
   name: string; born: string | null; passed: string | null; bio: string; has_photo: boolean;
   page: { honorific?: string; pull_quote?: string; nameplate_title?: string;
           timeline?: { year: string; label: string }[]; bio_facts?: { icon: string; label: string; value: string }[] };
-  coverage: CoverageStats; sessions_done: number; open_session: InterviewSession | null;
+  coverage: CoverageStats; sections: { name: string; total: number; covered: number; partial: number }[]; sessions_done: number; open_session: InterviewSession | null;
   biography: { content_md: string; created_at: string } | null;
 }
 
@@ -283,12 +283,20 @@ async function storyReq<T>(token: string, method: string, path: string, body?: u
   return res.json() as Promise<T>;
 }
 
+export interface SharedItem {
+  id: string; title: string; source_type: 'audio' | 'text'; status: RecordingStatus; status_detail: string;
+  created_at: string; memory_count: number;
+}
+
 export const storyApi = {
   page: (t: string) => storyReq<StoryPageData>(t, 'GET', ''),
   photoUrl: (t: string) => `${BASE}/story/${encodeURIComponent(t)}/photo`,
   start: (t: string) => storyReq<{ session: InterviewSession; resumed: boolean; coverage: CoverageStats }>(t, 'POST', '/sessions'),
   answer: (t: string, sid: string, text: string) => storyReq<InterviewReply>(t, 'POST', `/sessions/${sid}/turns`, { text }),
   end: (t: string, sid: string) => storyReq<{ ok: boolean; recording_id: string | null }>(t, 'POST', `/sessions/${sid}/end`, {}),
+  share: (t: string, form: FormData) => storyReq<{ id: string; title: string }>(t, 'POST', '/recordings', form),
+  shared: (t: string) => storyReq<SharedItem[]>(t, 'GET', '/recordings'),
+  pastSessions: (t: string) => storyReq<InterviewSession[]>(t, 'GET', '/sessions'),
   stt: (t: string, blob: Blob) => {
     const f = new FormData();
     f.append('file', blob, blob.type.includes('ogg') ? 'turn.ogg' : blob.type.includes('mp4') ? 'turn.mp4' : 'turn.webm');

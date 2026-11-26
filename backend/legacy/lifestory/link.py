@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from .. import db
+from .. import routes as core
 from ..auth import CurrentUser, require_role
 from ..providers.http import ProviderError
 from ..providers.stt import STTUnavailable, transcribe_bytes_quick
@@ -107,6 +108,12 @@ def story_page(token: str):
         "name": p["name"], "born": p["born"], "passed": p["passed"], "bio": p["bio"], "has_photo": bool(p["photo_key"]),
         "page": db.jload(story.get("page"), {}),
         "coverage": ls._coverage_out(p["id"])["stats"],
+        "sections": [
+            {"name": sec["name"], "total": len(sec["questions"]),
+             "covered": sum(q["status"] == "covered" for q in sec["questions"]),
+             "partial": sum(q["status"] == "partial" for q in sec["questions"])}
+            for sec in ls._coverage_out(p["id"])["sections"]
+        ],
         "sessions_done": db.one("SELECT count(*) AS n FROM interview_sessions WHERE persona_id = ? AND user_id = ? AND ended_at IS NOT NULL",
                                 (p["id"], u["id"]))["n"],
         "open_session": ls._session_out(open_s, turns=True) if open_s else None,
@@ -167,3 +174,48 @@ async def story_stt(token: str, file: UploadFile = File(...), language: Optional
             return {"text": ""}
         raise HTTPException(502, "Speech-to-text failed — please type your answer instead.")
     return {"text": t.text}
+
+
+# ── Sharing material (Bio-per3's upload panel) ──────────────────────────────
+
+@router.post("/story/{token}/recordings")
+def story_share(
+    token: str,
+    title: str = Form("", max_length=200),
+    transcript: Optional[str] = Form(None, max_length=400_000),
+    file: Optional[UploadFile] = File(None),
+):
+    """Paste text (notes, a WhatsApp export…), upload audio, or send a recorded voice memo — in his own words."""
+    p, u = _resolve(token)
+    first = p["name"].split()[0]
+    kind = "Voice memo" if file is not None and file.filename else "Written note"
+    name = title.strip() or f"{kind} from {first} · {db.now()[:10]}"
+    return core.create_recording(p["id"], u["id"], name, "solo", None, "Shared through the private story link.",
+                                 transcript, file)
+
+
+@router.get("/story/{token}/recordings")
+def story_shared(token: str):
+    """What he has shared himself (not the auto-saved interview sessions), with processing status."""
+    p, u = _resolve(token)
+    return db.all_rows(
+        """SELECT r.id, r.title, r.source_type, r.status, r.status_detail, r.created_at,
+                  (SELECT count(*) FROM memories m WHERE m.recording_id = r.id) AS memory_count
+           FROM recordings r WHERE r.persona_id = ? AND r.uploaded_by = ?
+             AND coalesce(r.transcript_source, '') <> 'interview' ORDER BY r.created_at DESC LIMIT 100""",
+        (p["id"], u["id"]),
+    )
+
+
+# ── Past conversations ──────────────────────────────────────────────────────
+
+@router.get("/story/{token}/sessions")
+def story_sessions(token: str):
+    """His finished interview conversations, newest first, with their full transcript."""
+    p, u = _resolve(token)
+    rows = db.all_rows(
+        """SELECT * FROM interview_sessions WHERE persona_id = ? AND user_id = ? AND ended_at IS NOT NULL
+           ORDER BY session_number DESC LIMIT 50""",
+        (p["id"], u["id"]),
+    )
+    return [ls._session_out(s, turns=True) for s in rows]
